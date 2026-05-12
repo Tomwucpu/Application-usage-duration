@@ -1,0 +1,16 @@
+{
+  "app.title": "Screen Time",
+  "status.tracking": "Tracking",
+  "status.stopped": "Stopped",
+  "status.afk": "AFK",
+  "status.current": "Current",
+  "status.today": "Today",
+  "summary.total": "Total Usage",
+  "summary.apps": "Active Apps",
+  "chart.ranking": "App Usage Ranking",
+  "chart.duration": "Duration",
+  "loading": "Loading...",
+  "refresh": "Refresh",
+  "refresh.loading": "Refreshing...",
+  "date.label": "Date"
+}
