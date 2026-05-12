@@ -1,7 +1,9 @@
-use chrono::Local;
-use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+use chrono::Local;
+use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 use crate::db::Database;
@@ -38,6 +40,106 @@ impl Tracker {
             icon_cache,
         }
     }
+}
+
+// NameCache: caches FileDescription lookups per executable path,
+// so each .exe's version info is only read once.
+pub struct NameCache {
+    cache: Mutex<HashMap<String, Option<String>>>,
+}
+
+impl NameCache {
+    pub fn new() -> Self {
+        NameCache { cache: Mutex::new(HashMap::new()) }
+    }
+
+    pub fn resolve(&self, exe_path: &str) -> Option<String> {
+        {
+            let cache = self.cache.lock().unwrap();
+            if let Some(entry) = cache.get(exe_path) {
+                return entry.clone();
+            }
+        }
+
+        let desc = get_file_description(exe_path);
+        self.cache.lock().unwrap().insert(exe_path.to_string(), desc.clone());
+        desc
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn get_file_description(full_path: &str) -> Option<String> {
+    use windows::Win32::Storage::FileSystem::{
+        GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
+    };
+    use windows::core::PCWSTR;
+
+    unsafe {
+        let wide_path: Vec<u16> = full_path
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let pcwstr = PCWSTR::from_raw(wide_path.as_ptr());
+
+        let mut handle: u32 = 0;
+        let size = GetFileVersionInfoSizeW(pcwstr, Some(&mut handle));
+        if size == 0 {
+            return None;
+        }
+
+        let mut buf: Vec<u8> = vec![0u8; size as usize];
+        if GetFileVersionInfoW(pcwstr, handle, size, buf.as_mut_ptr() as *mut std::ffi::c_void).is_err() {
+            return None;
+        }
+
+        let trans_query = wide_null("\\VarFileInfo\\Translation");
+        let trans_pcwstr = PCWSTR::from_raw(trans_query.as_ptr());
+        let mut trans_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+        let mut trans_len: u32 = 0;
+        if !VerQueryValueW(
+            buf.as_ptr() as *const std::ffi::c_void,
+            trans_pcwstr,
+            &mut trans_ptr,
+            &mut trans_len,
+        ).as_bool() || trans_len < 4 {
+            return None;
+        }
+
+        let lang = *(trans_ptr as *const u16);
+        let cpid = *(trans_ptr as *const u16).add(1);
+
+        let desc_query_str = format!(
+            "\\StringFileInfo\\{:04x}{:04x}\\FileDescription",
+            lang, cpid
+        );
+        let desc_query = wide_null(&desc_query_str);
+        let desc_pcwstr = PCWSTR::from_raw(desc_query.as_ptr());
+        let mut desc_ptr: *mut std::ffi::c_void = std::ptr::null_mut();
+        let mut desc_len: u32 = 0;
+        if !VerQueryValueW(
+            buf.as_ptr() as *const std::ffi::c_void,
+            desc_pcwstr,
+            &mut desc_ptr,
+            &mut desc_len,
+        ).as_bool() || desc_len == 0 || desc_ptr.is_null() {
+            return None;
+        }
+
+        let desc = String::from_utf16_lossy(
+            std::slice::from_raw_parts(desc_ptr as *const u16, desc_len as usize),
+        );
+        let desc = desc.trim_end_matches('\0').trim().to_string();
+        if desc.is_empty() { None } else { Some(desc) }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_file_description(_full_path: &str) -> Option<String> {
+    None
+}
+
+fn wide_null(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
 #[cfg(target_os = "windows")]
@@ -159,6 +261,7 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
     let idle_threshold_seconds: u32 = 300;
 
     std::thread::spawn(move || {
+        let name_cache = NameCache::new();
         let mut last_app: Option<String> = None;
         let mut last_start: Option<chrono::DateTime<Local>> = None;
 
@@ -198,11 +301,16 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                 current_state.is_afk = false;
 
                 if let Some((app_name, window_title, app_path)) = get_active_window_info() {
-                    current_state.current_app = app_name.clone();
+                    let display_name = app_path
+                        .as_ref()
+                        .and_then(|p| name_cache.resolve(p))
+                        .unwrap_or_else(|| app_name.clone());
+
+                    current_state.current_app = display_name.clone();
                     current_state.current_title = window_title.clone();
 
                     // Extract icon for new app
-                    if last_app.as_ref() != Some(&app_name) {
+                    if last_app.as_ref() != Some(&display_name) {
                         if let Some(ref path) = app_path {
                             current_state.current_icon = icon_cache.get_or_extract(path);
                         } else {
@@ -210,7 +318,7 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                         }
                     }
 
-                    let app_changed = last_app.as_ref() != Some(&app_name);
+                    let app_changed = last_app.as_ref() != Some(&display_name);
 
                     if app_changed {
                         if let (Some(ref prev_app), Some(start)) = (&last_app, last_start) {
@@ -229,7 +337,7 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                             }
                         }
 
-                        last_app = Some(app_name);
+                        last_app = Some(display_name);
                         last_start = Some(now);
                     }
                 }

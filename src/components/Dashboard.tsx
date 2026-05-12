@@ -1,7 +1,6 @@
 import { useStore } from "../stores/useStore";
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
-import { getDisplayName } from "./AppNames";
 import { AppRanking } from "./AppRanking";
 
 function formatDuration(seconds: number, locale: Locale): string {
@@ -62,7 +61,7 @@ export function Dashboard() {
             />
           )}
           <span className="text-slate-200">
-            {getDisplayName(tracker.current_app, locale) || "—"}
+            {tracker.current_app || "—"}
           </span>
           {tracker.current_title && (
             <span className="text-slate-500 ml-1">— {tracker.current_title}</span>

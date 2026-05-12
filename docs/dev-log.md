@@ -33,9 +33,11 @@
 - 前端展示：状态栏当前应用图标 + 排行榜各应用图标
 - 无图标时显示首字母头像作为降级
 
-### 应用名称映射
-- 内置 30+ 常见应用的中英文名称映射（Chrome、VS Code、微信、Office 等）
-- `getDisplayName()` 大小写不敏感匹配，未匹配则显示原始名称
+### 应用名称显示
+- 移除前端硬编码应用名翻译表（`APP_NAME_MAP`），`getDisplayName()` 简化为直接返回原始名称
+- **Windows 版本信息读取**：通过 `GetFileVersionInfoSizeW` / `GetFileVersionInfoW` / `VerQueryValueW` 读取可执行文件的 `FileDescription` 字段，获得类似任务管理器的友好名称（如 `Google Chrome`、`Microsoft Edge`）
+- **NameCache**：按可执行文件路径缓存查询结果，首次读取后命中缓存无需重复 I/O
+- 降级策略：版本信息不可用时回退到 `file_stem()` 提取文件名
 
 ### 已修复问题
 - Tauri 2.x 权限系统：添加 `capabilities/default.json` 授权 `core:event:allow-listen` 和 `core:event:allow-emit`
