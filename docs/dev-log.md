@@ -45,6 +45,19 @@
 - `QueryFullProcessImageNameW` 参数类型匹配（`HANDLE` 直接传递、`PWSTR` 包装）
 - GDI 函数返回值处理：`CreateCompatibleDC`/`CreateCompatibleBitmap` 返回原始句柄非 Result
 
+### Phase 2 — 可视化 (2026-05-12)
+
+- **UsageCharts 组件** (`UsageCharts.tsx`): 新增 Recharts 可视化图表组件
+  - **应用占比饼图** (PieChart): 使用 donut 样式（innerRadius=60），展示 Top 7 应用 + "其他"分类，自定义 Tooltip 显示时长和百分比，右侧 Legend 图例
+  - **分时使用柱状图** (BarChart): 填充 0-23 完整 24 小时，每格显示 `分钟` 数，自定义 Tooltip 显示具体时间点和时长
+  - 数据转换：`buildPieData()` 合并 7 名以外的应用为"其他"；`buildHourlyData()` 补齐缺失小时为 0
+  - 空数据状态降级显示
+  - 图表采用暗色主题适配：`#1e293b` 网格线、`#94a3b8` 坐标轴标签、`#6366f1` 柱状图填充色
+
+- **Dashboard 布局升级**: 在摘要卡片和排行榜之间嵌入 Charts 区块，`lg:grid-cols-2` 响应式双列布局
+
+- **i18n 扩展**: 新增 5 个翻译键 — `chart.distribution`、`chart.hourly`、`chart.hour`、`chart.minutes`、`chart.others`
+
 ### 技术栈
 | 层 | 技术 |
 |----|------|

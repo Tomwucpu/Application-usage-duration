@@ -2,6 +2,7 @@ import { useStore } from "../stores/useStore";
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
 import { AppRanking } from "./AppRanking";
+import { UsageCharts } from "./UsageCharts";
 
 function formatDuration(seconds: number, locale: Locale): string {
   const h = Math.floor(seconds / 3600);
@@ -109,6 +110,12 @@ export function Dashboard() {
               </div>
             </div>
           </div>
+
+          <UsageCharts
+            apps={summary.apps}
+            totalSeconds={summary.total_seconds}
+            hourly={summary.hourly}
+          />
 
           <AppRanking apps={summary.apps} totalSeconds={summary.total_seconds} />
         </>
