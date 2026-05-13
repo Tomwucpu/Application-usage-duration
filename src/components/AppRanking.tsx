@@ -30,12 +30,12 @@ function AppIcon({ base64, name }: { base64: string; name: string }) {
       <img
         src={`data:image/png;base64,${base64}`}
         alt={name}
-        className="w-8 h-8 rounded-md flex-shrink-0"
+        className="w-6 h-6 rounded-md flex-shrink-0"
       />
     );
   }
   return (
-    <div className="w-8 h-8 rounded-md flex-shrink-0 bg-slate-700 flex items-center justify-center text-xs text-slate-400 font-bold">
+    <div className="w-6 h-6 rounded-md flex-shrink-0 bg-slate-700 flex items-center justify-center text-xs text-slate-400 font-bold">
       {name.charAt(0).toUpperCase()}
     </div>
   );

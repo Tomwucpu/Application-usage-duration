@@ -15,7 +15,7 @@ interface Store {
   hourlyBreakdown: HourlyAppBreakdown[];
   dailyBreakdown: DailyAppBreakdown[];
   autoStartEnabled: boolean;
-  init: () => Promise<void>;
+  init: () => Promise<() => void>;
   setDate: (date: string) => Promise<void>;
   refresh: () => Promise<void>;
   setActiveTab: (tab: TabId) => void;
@@ -51,11 +51,11 @@ export const useStore = create<Store>((set, get) => ({
   autoStartEnabled: false,
 
   init: async () => {
-    await invoke("start_tracking");
-
-    await listen<TrackerState>("tracker-state", (event) => {
+    const unlisten = await listen<TrackerState>("tracker-state", (event) => {
       set({ tracker: event.payload });
     });
+
+    await invoke("start_tracking");
 
     const summary = await invoke<DailySummary>("get_daily_summary", {
       date: get().selectedDate,
@@ -69,6 +69,10 @@ export const useStore = create<Store>((set, get) => ({
     } catch {
       // Plugin may not be available in dev
     }
+
+    return () => {
+      unlisten();
+    };
   },
 
   setDate: async (date: string) => {

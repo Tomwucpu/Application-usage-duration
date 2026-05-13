@@ -65,6 +65,10 @@ impl Database {
                 date TEXT NOT NULL,
                 hour INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS app_metadata (
+                app_name TEXT PRIMARY KEY,
+                app_path TEXT NOT NULL
+            );
             CREATE INDEX IF NOT EXISTS idx_date ON usage_records(date);
             CREATE INDEX IF NOT EXISTS idx_hour ON usage_records(date, hour);
             CREATE INDEX IF NOT EXISTS idx_app ON usage_records(app_name, date);",
@@ -163,58 +167,6 @@ impl Database {
         })
     }
 
-    pub fn get_app_paths_for_date(&self, date: &str) -> Result<HashMap<String, String>, String> {
-        let conn = self.conn.lock().map_err(|e| e.to_string())?;
-        let mut stmt = conn
-            .prepare(
-                "SELECT DISTINCT app_name, app_path FROM usage_records
-                 WHERE date = ?1 AND app_path IS NOT NULL AND app_path != ''",
-            )
-            .map_err(|e| e.to_string())?;
-
-        let rows = stmt
-            .query_map(params![date], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| e.to_string())?;
-
-        let mut map = HashMap::new();
-        for row in rows {
-            if let Ok((name, path)) = row {
-                map.entry(name).or_insert(path);
-            }
-        }
-        Ok(map)
-    }
-
-    pub fn get_app_paths_for_date_range(
-        &self,
-        start_date: &str,
-        end_date: &str,
-    ) -> Result<HashMap<String, String>, String> {
-        let conn = self.conn.lock().map_err(|e| e.to_string())?;
-        let mut stmt = conn
-            .prepare(
-                "SELECT DISTINCT app_name, app_path FROM usage_records
-                 WHERE date BETWEEN ?1 AND ?2 AND app_path IS NOT NULL AND app_path != ''",
-            )
-            .map_err(|e| e.to_string())?;
-
-        let rows = stmt
-            .query_map(params![start_date, end_date], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| e.to_string())?;
-
-        let mut map = HashMap::new();
-        for row in rows {
-            if let Ok((name, path)) = row {
-                map.entry(name).or_insert(path);
-            }
-        }
-        Ok(map)
-    }
-
     pub fn get_hourly_app_breakdown(
         &self,
         date: &str,
@@ -310,6 +262,38 @@ impl Database {
             .collect();
 
         Ok(result)
+    }
+
+    pub fn upsert_app_metadata(
+        &self,
+        app_name: &str,
+        app_path: &str,
+    ) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "INSERT INTO app_metadata (app_name, app_path) VALUES (?1, ?2)
+             ON CONFLICT(app_name) DO UPDATE SET app_path = excluded.app_path",
+            params![app_name, app_path],
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn get_all_app_metadata(&self) -> Result<HashMap<String, String>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT app_name, app_path FROM app_metadata")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?;
+        let mut map = HashMap::new();
+        for row in rows {
+            if let Ok((name, path)) = row {
+                map.insert(name, path);
+            }
+        }
+        Ok(map)
     }
 
     pub fn get_today_total_seconds(&self, date: &str) -> Result<i64, String> {

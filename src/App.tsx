@@ -9,7 +9,10 @@ function AppInner() {
   const { t } = useT();
 
   useEffect(() => {
-    init();
+    const p = init();
+    return () => {
+      p.then((cleanup) => cleanup());
+    };
   }, [init]);
 
   return (

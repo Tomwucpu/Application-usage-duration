@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use chrono::Local;
@@ -23,6 +24,7 @@ pub struct Tracker {
     pub state: Arc<Mutex<TrackerState>>,
     db: Arc<Database>,
     icon_cache: Arc<IconCache>,
+    thread_spawned: AtomicBool,
 }
 
 impl Tracker {
@@ -38,6 +40,7 @@ impl Tracker {
             })),
             db,
             icon_cache,
+            thread_spawned: AtomicBool::new(false),
         }
     }
 
@@ -154,7 +157,7 @@ fn wide_null(s: &str) -> Vec<u16> {
 mod platform {
     use windows::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT,
-        PROCESS_QUERY_INFORMATION, PROCESS_VM_READ,
+        PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
     };
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -192,13 +195,22 @@ mod platform {
 
     fn get_process_info(pid: u32) -> (String, Option<String>) {
         unsafe {
-            let handle = match OpenProcess(
-                PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+            // Try PROCESS_QUERY_INFORMATION first, fall back to LIMITED
+            let handle = OpenProcess(
+                PROCESS_QUERY_INFORMATION,
                 false,
                 pid,
-            ) {
+            )
+            .or_else(|_| {
+                OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
+            });
+
+            let handle = match handle {
                 Ok(h) => h,
-                Err(_) => return (String::new(), None),
+                Err(e) => {
+                    eprintln!("[tracker] OpenProcess failed for pid={}: {:?}", pid, e);
+                    return (String::new(), None);
+                }
             };
 
             let mut buf = vec![0u16; 512];
@@ -263,6 +275,10 @@ mod platform {
 use platform::{get_active_window_info, get_idle_seconds};
 
 pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
+    if tracker.thread_spawned.swap(true, Ordering::SeqCst) {
+        return; // Tracking thread already running
+    }
+
     let db = tracker.db.clone();
     let state = tracker.state.clone();
     let icon_cache = tracker.icon_cache.clone();
@@ -271,7 +287,10 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
     std::thread::spawn(move || {
         let name_cache = NameCache::new();
         let mut last_app: Option<String> = None;
+        let mut last_app_path: Option<String> = None;
+        let mut last_window_title: Option<String> = None;
         let mut last_start: Option<chrono::DateTime<Local>> = None;
+        let mut was_running = true;
 
         loop {
             std::thread::sleep(Duration::from_secs(2));
@@ -283,13 +302,40 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
 
             let mut current_state = state.lock().unwrap();
 
+            let just_paused = was_running && !current_state.is_running;
+            let just_resumed = !was_running && current_state.is_running;
+            was_running = current_state.is_running;
+
             if !current_state.is_running {
-                // Still emit state so frontend knows we're paused
+                if just_paused {
+                    if let (Some(ref app), Some(start)) = (&last_app, last_start) {
+                        if app != "AFK" {
+                            let duration = (now - start).num_seconds();
+                            if duration > 0 {
+                                let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
+                                let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
+                                let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
+                                let _ = db.insert_usage(
+                                    app,
+                                    last_app_path.as_deref(),
+                                    last_window_title.as_deref(),
+                                    &start_str, &end_str, duration,
+                                    &start.format("%Y-%m-%d").to_string(), hour,
+                                );
+                            }
+                        }
+                    }
+                    last_start = None;
+                }
                 let state_clone = current_state.clone();
                 drop(current_state);
 
                 let _ = app.emit("tracker-state", &state_clone);
                 continue;
+            }
+
+            if just_resumed {
+                last_start = Some(now);
             }
 
             if is_idle && !current_state.is_afk {
@@ -300,13 +346,17 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                         let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
                         let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
                         let _ = db.insert_usage(
-                            app, None, None,
+                            app,
+                            last_app_path.as_deref(),
+                            last_window_title.as_deref(),
                             &start_str, &end_str, duration,
                             &start.format("%Y-%m-%d").to_string(), hour,
                         );
                     }
                 }
                 last_app = Some("AFK".to_string());
+                last_app_path = None;
+                last_window_title = None;
                 last_start = None;
                 current_state.is_afk = true;
                 current_state.current_app = "AFK".to_string();
@@ -325,6 +375,11 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
 
                     current_state.current_app = display_name.clone();
                     current_state.current_title = window_title.clone();
+
+                    // Persist app->path mapping for icon lookup
+                    if let Some(ref path) = app_path {
+                        let _ = db.upsert_app_metadata(&display_name, path);
+                    }
 
                     // Extract icon for new app
                     if last_app.as_ref() != Some(&display_name) {
@@ -346,7 +401,9 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                                     let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
                                     let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
                                     let _ = db.insert_usage(
-                                        prev_app, None, None,
+                                        prev_app,
+                                        last_app_path.as_deref(),
+                                        last_window_title.as_deref(),
                                         &start_str, &end_str, duration,
                                         &start.format("%Y-%m-%d").to_string(), hour,
                                     );
@@ -355,6 +412,8 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                         }
 
                         last_app = Some(display_name);
+                        last_app_path = app_path.clone();
+                        last_window_title = Some(window_title.clone());
                         last_start = Some(now);
                     }
                 }

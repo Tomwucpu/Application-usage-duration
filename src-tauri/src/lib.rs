@@ -16,7 +16,7 @@ fn get_daily_summary(
     icon_cache: tauri::State<Arc<IconCache>>,
 ) -> Result<DailySummary, String> {
     let mut summary = db.get_daily_summary(&date)?;
-    let app_paths = db.get_app_paths_for_date(&date)?;
+    let app_paths = db.get_all_app_metadata()?;
 
     for app in &mut summary.apps {
         if let Some(path) = app_paths.get(&app.app_name) {
@@ -34,7 +34,7 @@ fn get_hourly_app_breakdown(
     icon_cache: tauri::State<Arc<IconCache>>,
 ) -> Result<Vec<HourlyAppBreakdown>, String> {
     let mut breakdown = db.get_hourly_app_breakdown(&date)?;
-    let app_paths = db.get_app_paths_for_date(&date)?;
+    let app_paths = db.get_all_app_metadata()?;
 
     for item in &mut breakdown {
         if let Some(path) = app_paths.get(&item.app_name) {
@@ -53,7 +53,7 @@ fn get_daily_app_breakdown(
     icon_cache: tauri::State<Arc<IconCache>>,
 ) -> Result<Vec<DailyAppBreakdown>, String> {
     let mut breakdown = db.get_daily_app_breakdown(&start_date, &end_date)?;
-    let app_paths = db.get_app_paths_for_date_range(&start_date, &end_date)?;
+    let app_paths = db.get_all_app_metadata()?;
 
     for item in &mut breakdown {
         if let Some(path) = app_paths.get(&item.app_name) {
@@ -79,10 +79,10 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .setup(|app: &mut App| {
-            let app_dir = app
-                .path()
-                .app_data_dir()
-                .expect("failed to resolve app data dir");
+            let app_dir = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                .expect("failed to resolve exe directory");
 
             let database = Arc::new(Database::new(app_dir).expect("failed to initialize database"));
             let icon_cache = Arc::new(IconCache::new());

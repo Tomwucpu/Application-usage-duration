@@ -28,7 +28,7 @@ impl IconCache {
 fn extract_icon_base64(exe_path: &str) -> Option<String> {
     use windows::Win32::UI::Shell::{SHGetFileInfoW, SHGFI_ICON, SHGFI_LARGEICON, SHFILEINFOW};
     use windows::Win32::Graphics::Gdi::{
-        CreateCompatibleDC, DeleteDC, CreateCompatibleBitmap, SelectObject,
+        CreateCompatibleDC, DeleteDC, SelectObject,
         DeleteObject, GetDIBits, BITMAPINFO, BITMAPINFOHEADER,
         DIB_RGB_COLORS, BI_RGB, RGBQUAD,
     };
@@ -74,7 +74,9 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
             return None;
         }
 
-        let hbm = CreateCompatibleBitmap(hdc, width, height);
+        let mut pixels_ptr = std::ptr::null_mut();
+        let bmi2 = BITMAPINFO { bmiHeader: BITMAPINFOHEADER { biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32, biWidth: width, biHeight: -height, biPlanes: 1, biBitCount: 32, biCompression: BI_RGB.0, biSizeImage: 0, biXPelsPerMeter: 0, biYPelsPerMeter: 0, biClrUsed: 0, biClrImportant: 0 }, bmiColors: [RGBQUAD::default(); 1] };
+        let hbm = windows::Win32::Graphics::Gdi::CreateDIBSection(hdc, &bmi2 as *const _, DIB_RGB_COLORS, &mut pixels_ptr, None, 0).unwrap_or_default();
         if hbm.is_invalid() {
             let _ = DeleteDC(hdc);
             let _ = DestroyIcon(hicon);
@@ -128,11 +130,25 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
         }
 
         // Convert BGRA to RGBA
+        let mut has_alpha = false;
+        for i in (0..data_size).step_by(4) {
+            if pixels[i + 3] > 0 {
+                has_alpha = true;
+                break;
+            }
+        }
+
         for i in (0..data_size).step_by(4) {
             let b = pixels[i];
+            let g = pixels[i + 1];
             let r = pixels[i + 2];
             pixels[i] = r;
+            pixels[i + 1] = g;
             pixels[i + 2] = b;
+            
+            if !has_alpha && (r > 0 || g > 0 || b > 0) {
+                pixels[i + 3] = 255;
+            }
         }
 
         let mut png_bytes: Vec<u8> = Vec::new();

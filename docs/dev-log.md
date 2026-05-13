@@ -123,3 +123,20 @@
 | 数据库 | SQLite (rusqlite) |
 | Windows API | windows-rs 0.57 |
 | 图标处理 | image crate (PNG) + base64 |
+
+## 2026-05-13 — 稳定性、性能与数据结构优化 (Phase 3)
+
+### 数据库层更新 (`db.rs`)
+- **应用元数据分离**: 新增 `app_metadata` 表专门存储 `app_name` 与 `app_path` 映射关系，取代此前在 `usage_records` 中基于日期的关联聚合查询，降低数据库性能损耗。
+- 全局使用 `get_all_app_metadata` 快速获取应用路径以提取图标，移除原有按时间区间进行分组查询的操作。
+
+### 进程追踪与图标改进 (`tracker.rs`, `icon.rs`)
+- **权限兼容性增强**: 在获取进程信息 (`OpenProcess`) 时，增加降级查询策略 (`PROCESS_QUERY_LIMITED_INFORMATION`)，提高对系统级应用及高权限进程的识别成功率。
+- **线程死锁及防抖保护**: 在 `start_tracking` 内借助 `AtomicBool` 标识检查，防止 React 前端引发的多次触发导致重复派生系统检测线程。
+- **程序挂起及暂停生命周期**: 精确处理应用暂停、恢复（Pause/Resume）阶段的数据落盘，现在在插入记录时会完整附带 `app_path` 与 `window_title` 以补全丢失的部分上下文。
+- **图标透明度渲染修复**: 优化了 Windows GDI icon 提取方法，换用 `CreateDIBSection` 取代老的兼容位图方法，精准捕获 Alpha 色彩通道，解决图标解析时常发生的黑色背景问题。
+
+### 前端状态与架构微调 (`lib.rs`, `App.tsx`)
+- **便携化（绿色）支持**: 调整后端持久化数据保存路径配置，将其从系统级别的 AppData 文件目录转移至与运行程序同级的所在目录，确保产品能够达到绿色运行的便携目的。
+- **Tauri 事件拦截与析构**: 更新前端 `useStore:init` 函数结构，将事件的订阅过程置于命令执行之上，同时将返回的 `unlisten()` 函数暴露给 `useEffect` 的清理周期执行。
+- **UI 组件视觉调整**: 缩小 `AppRanking` 的展示图标大小 (`w-8 h-8` -> `w-6 h-6`)，让数据列表呈现更紧凑的外观。
