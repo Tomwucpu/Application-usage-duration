@@ -58,6 +58,60 @@
 
 - **i18n 扩展**: 新增 5 个翻译键 — `chart.distribution`、`chart.hourly`、`chart.hour`、`chart.minutes`、`chart.others`
 
+## 2026-05-13 — 时段热力图重构为堆叠柱状图
+
+### 重构概述
+
+将原有的 HeatmapChart（7×24 色块网格）和 TimelineView（主导应用网格）两个自定义组件替换为**基于 Recharts 的堆叠柱状图**，在单个 Tab 内支持日视图/周视图切换，直观展示每小时/每天内部各应用的时长占比。
+
+### Rust 后端
+
+- **新增结构体** (`db.rs`):
+  - `HourlyAppBreakdown`: `hour` + `app_name` + `total_seconds` + `percentage` + `icon_base64`
+  - `DailyAppBreakdown`: `date` + `app_name` + `total_seconds` + `percentage` + `icon_base64`
+- **新增数据库查询** (`db.rs`):
+  - `get_hourly_app_breakdown(date)`: `GROUP BY hour, app_name`，计算每小时内部各应用占比
+  - `get_daily_app_breakdown(start, end)`: `GROUP BY date, app_name`，计算每天内部各应用占比
+  - `get_app_paths_for_date_range(start, end)`: 获取日期范围内的应用路径用于图标提取
+- **新增 IPC 命令** (`lib.rs`):
+  - `get_hourly_app_breakdown`: 获取单日分时应用占比，附带图标 Base64
+  - `get_daily_app_breakdown`: 获取日期范围分日应用占比，附带图标 Base64
+- **删除旧代码**: 移除 `HeatmapCell`、`TimelineCell` 结构体及对应的数据库方法和 IPC 命令
+
+### React 前端
+
+- **StackedBarChart 组件** (`StackedBarChart.tsx`): 新建核心可视化组件
+  - **日视图**: 24 根堆叠柱状图（每小时一根），每根柱按照应用堆叠，展示该小时内各应用的使用时长占比
+  - **周视图**: 7 根堆叠柱状图（每天一根），展示过去 7 天每天的应用使用构成
+  - **分段控制器**: `inline-flex` 双按钮切换日/周视图，选中态 `bg-indigo-600`
+  - **数据变换**: `buildDailyChartData()` / `buildWeeklyChartData()` 将扁平数据透视（pivot）为 Recharts 所需格式，Top 10 应用独立着色，其余归入"其他"
+  - **颜色方案**: 复用现有 12 色调色板，"其他"固定 `#475569`
+  - **自定义 Tooltip**: 深色主题，显示时段内各应用的时长和百分比，按使用量降序排列
+  - **图例**: 图表下方 flex-wrap 横排，最大宽度 80px 截断
+  - **空状态**: 无数据时居中显示提示文案
+
+- **Dashboard 重构** (`Dashboard.tsx`):
+  - Tab 从 3 个简化为 2 个: 仪表盘 / 应用分布
+  - 切换到"应用分布"Tab 时懒加载数据
+  - 日期变更时自动刷新日视图数据
+  - `TabId` 类型更新为 `"dashboard" | "breakdown"`
+
+- **状态管理** (`useStore.ts`):
+  - 新增 `hourlyBreakdown`、`dailyBreakdown` 状态字段
+  - 新增 `loadHourlyBreakdown(date)`、`loadDailyBreakdown()` 动作
+  - 移除 `heatmapData`、`timelineData` 及相关动作
+
+- **类型定义** (`types/index.ts`): 新增 `HourlyAppBreakdown`、`DailyAppBreakdown`；移除 `HeatmapCell`、`TimelineCell`
+
+- **i18n**: 新增 `tab.breakdown`、`breakdown.title`、`breakdown.daily`、`breakdown.weekly`、`breakdown.noData`；移除旧的 `tab.heatmap`、`tab.timeline`、`heatmap.*`、`timeline.*`
+
+- **删除文件**: `HeatmapChart.tsx`、`TimelineView.tsx`
+
+### 后端编译验证
+- `cargo build` 通过，无错误
+- `npx tsc --noEmit` 通过，无类型错误
+- `npm run build` 通过，Vite 构建成功
+
 ### 技术栈
 | 层 | 技术 |
 |----|------|

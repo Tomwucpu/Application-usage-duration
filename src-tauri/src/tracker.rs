@@ -40,6 +40,14 @@ impl Tracker {
             icon_cache,
         }
     }
+
+    pub fn pause(&self) {
+        self.state.lock().unwrap().is_running = false;
+    }
+
+    pub fn resume(&self) {
+        self.state.lock().unwrap().is_running = true;
+    }
 }
 
 // NameCache: caches FileDescription lookups per executable path,
@@ -275,6 +283,15 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
 
             let mut current_state = state.lock().unwrap();
 
+            if !current_state.is_running {
+                // Still emit state so frontend knows we're paused
+                let state_clone = current_state.clone();
+                drop(current_state);
+
+                let _ = app.emit("tracker-state", &state_clone);
+                continue;
+            }
+
             if is_idle && !current_state.is_afk {
                 if let (Some(ref app), Some(start)) = (&last_app, last_start) {
                     let duration = (now - start).num_seconds();
@@ -351,6 +368,18 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
             drop(current_state);
 
             let _ = app.emit("tracker-state", &state_clone);
+
+            // Update tray tooltip
+            if let Some(tray) = app.tray_by_id("main-tray") {
+                let h = state_clone.today_total_seconds / 3600;
+                let m = (state_clone.today_total_seconds % 3600) / 60;
+                let tooltip = if state_clone.is_running {
+                    format!("Screen Time - {}h {}m today", h, m)
+                } else {
+                    format!("Screen Time - Paused ({}h {}m today)", h, m)
+                };
+                let _ = tray.set_tooltip(Some(&tooltip));
+            }
         }
     });
 }

@@ -25,6 +25,24 @@ pub struct DailySummary {
     pub hourly: Vec<HourlySummary>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HourlyAppBreakdown {
+    pub hour: i32,
+    pub app_name: String,
+    pub total_seconds: i64,
+    pub percentage: f64,
+    pub icon_base64: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DailyAppBreakdown {
+    pub date: String,
+    pub app_name: String,
+    pub total_seconds: i64,
+    pub percentage: f64,
+    pub icon_base64: String,
+}
+
 pub struct Database {
     pub conn: Mutex<Connection>,
 }
@@ -169,6 +187,131 @@ impl Database {
         Ok(map)
     }
 
+    pub fn get_app_paths_for_date_range(
+        &self,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<HashMap<String, String>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT DISTINCT app_name, app_path FROM usage_records
+                 WHERE date BETWEEN ?1 AND ?2 AND app_path IS NOT NULL AND app_path != ''",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let rows = stmt
+            .query_map(params![start_date, end_date], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|e| e.to_string())?;
+
+        let mut map = HashMap::new();
+        for row in rows {
+            if let Ok((name, path)) = row {
+                map.entry(name).or_insert(path);
+            }
+        }
+        Ok(map)
+    }
+
+    pub fn get_hourly_app_breakdown(
+        &self,
+        date: &str,
+    ) -> Result<Vec<HourlyAppBreakdown>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT hour, app_name, SUM(duration_seconds) as total
+                 FROM usage_records WHERE date = ?1
+                 GROUP BY hour, app_name ORDER BY hour, total DESC",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let rows: Vec<(i32, String, i64)> = stmt
+            .query_map(params![date], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let mut hour_totals: HashMap<i32, i64> = HashMap::new();
+        for (hour, _, secs) in &rows {
+            *hour_totals.entry(*hour).or_default() += secs;
+        }
+
+        let result: Vec<HourlyAppBreakdown> = rows
+            .into_iter()
+            .map(|(hour, app_name, total_seconds)| {
+                let total = hour_totals.get(&hour).copied().unwrap_or(0);
+                let percentage = if total > 0 {
+                    (total_seconds as f64 / total as f64) * 100.0
+                } else {
+                    0.0
+                };
+                HourlyAppBreakdown {
+                    hour,
+                    app_name,
+                    total_seconds,
+                    percentage,
+                    icon_base64: String::new(),
+                }
+            })
+            .collect();
+
+        Ok(result)
+    }
+
+    pub fn get_daily_app_breakdown(
+        &self,
+        start_date: &str,
+        end_date: &str,
+    ) -> Result<Vec<DailyAppBreakdown>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT date, app_name, SUM(duration_seconds) as total
+                 FROM usage_records WHERE date BETWEEN ?1 AND ?2
+                 GROUP BY date, app_name ORDER BY date, total DESC",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let rows: Vec<(String, String, i64)> = stmt
+            .query_map(params![start_date, end_date], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let mut date_totals: HashMap<String, i64> = HashMap::new();
+        for (date, _, secs) in &rows {
+            *date_totals.entry(date.clone()).or_default() += secs;
+        }
+
+        let result: Vec<DailyAppBreakdown> = rows
+            .into_iter()
+            .map(|(date, app_name, total_seconds)| {
+                let total = date_totals.get(&date).copied().unwrap_or(0);
+                let percentage = if total > 0 {
+                    (total_seconds as f64 / total as f64) * 100.0
+                } else {
+                    0.0
+                };
+                DailyAppBreakdown {
+                    date,
+                    app_name,
+                    total_seconds,
+                    percentage,
+                    icon_base64: String::new(),
+                }
+            })
+            .collect();
+
+        Ok(result)
+    }
+
     pub fn get_today_total_seconds(&self, date: &str) -> Result<i64, String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         conn.query_row(
@@ -178,4 +321,5 @@ impl Database {
         )
         .map_err(|e| e.to_string())
     }
+
 }

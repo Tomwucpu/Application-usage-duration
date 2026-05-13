@@ -36,3 +36,19 @@ export interface TrackerState {
   current_icon: string;
   today_total_seconds: number;
 }
+
+export interface HourlyAppBreakdown {
+  hour: number;
+  app_name: string;
+  total_seconds: number;
+  percentage: number;
+  icon_base64: string;
+}
+
+export interface DailyAppBreakdown {
+  date: string;
+  app_name: string;
+  total_seconds: number;
+  percentage: number;
+  icon_base64: string;
+}
