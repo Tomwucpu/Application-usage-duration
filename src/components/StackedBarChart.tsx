@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import type { HourlyAppBreakdown, DailyAppBreakdown } from "../types";
 import { useT } from "../i18n";
+import { useStore } from "../stores/useStore";
 
 const COLORS = [
   "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
@@ -172,8 +173,8 @@ function CustomTooltip({
   const total = sorted.reduce((sum, p) => sum + p.value, 0);
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 shadow-xl">
-      <div className="text-slate-200 font-medium text-sm mb-1">{label}</div>
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 shadow-xl">
+      <div className="text-slate-800 dark:text-slate-200 font-medium text-sm mb-1">{label}</div>
       <div className="space-y-0.5">
         {sorted.map((p) => {
           const pct = total > 0 ? ((p.value / total) * 100).toFixed(1) : "0";
@@ -183,20 +184,20 @@ function CustomTooltip({
                 className="w-2 h-2 rounded-sm shrink-0"
                 style={{ backgroundColor: colorMap[p.name] || OTHER_COLOR }}
               />
-              <span className="text-slate-300 truncate max-w-[100px]">
+              <span className="text-slate-700 dark:text-slate-300 truncate max-w-[100px]">
                 {p.name}
               </span>
-              <span className="text-slate-400 ml-auto tabular-nums">
+              <span className="text-slate-500 dark:text-slate-400 ml-auto tabular-nums">
                 {formatDuration(p.value)}
               </span>
-              <span className="text-slate-500 w-10 text-right tabular-nums">
+              <span className="text-slate-500 dark:text-slate-400 w-10 text-right tabular-nums">
                 {pct}%
               </span>
             </div>
           );
         })}
       </div>
-      <div className="border-t border-slate-700 mt-1.5 pt-1 text-xs text-slate-400 flex justify-between">
+      <div className="border-t border-slate-200 dark:border-slate-700 mt-1.5 pt-1 text-xs text-slate-500 dark:text-slate-400 flex justify-between">
         <span>Total</span>
         <span className="tabular-nums">{formatDuration(total)}</span>
       </div>
@@ -207,7 +208,9 @@ function CustomTooltip({
 export function StackedBarChart({ hourlyData, dailyData }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
   const { t, locale } = useT();
+  const theme = useStore((s) => s.theme);
   const othersLabel = t("chart.others");
+  const isDark = theme === "dark";
 
   const { chartData, appNames, colorMap } = useMemo(() => {
     if (viewMode === "daily") {
@@ -222,28 +225,28 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
 
   if (!hasData) {
     return (
-      <div className="text-center text-slate-500 py-12">
+      <div className="text-center text-slate-500 dark:text-slate-400 py-12">
         {t("breakdown.noData")}
       </div>
     );
   }
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 flex flex-col space-y-5 shadow-sm">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
       {/* View title + switcher */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-100">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
           {t("breakdown.title")}
         </h2>
-        <div className="inline-flex bg-slate-950/50 rounded-lg p-1 border border-slate-800/60">
+        <div className="inline-flex bg-slate-100 dark:bg-slate-950/50 rounded-lg p-1 border border-slate-200 dark:border-slate-800/60">
           {(["daily", "weekly"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
                 viewMode === mode
-                  ? "bg-indigo-500/10 text-indigo-400 shadow-sm"
-                  : "text-slate-400 hover:text-slate-300 hover:bg-slate-800/50"
+                  ? "bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/50"
               }`}
             >
               {t(`breakdown.${mode}`)}
@@ -260,16 +263,16 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
             data={chartData}
             margin={{ top: 10, right: 4, bottom: 4, left: 0 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#1e293b" : "#e2e8f0"} />
             <XAxis
               dataKey={viewMode === "daily" ? "hour" : "dateLabel"}
-              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               interval={viewMode === "daily" ? 3 : 0}
             />
             <YAxis
-              tick={{ fill: "#94a3b8", fontSize: 11 }}
+              tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               tickFormatter={(v: number) => `${Math.round(v / 60)}`}
@@ -279,7 +282,7 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
               content={
                 <CustomTooltip colorMap={colorMap} />
               }
-              cursor={{ fill: "rgba(148, 163, 184, 0.08)" }}
+              cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.08)" : "rgba(100, 116, 139, 0.08)" }}
             />
             {appNames.map((appName, i) => (
               <Bar
@@ -308,7 +311,7 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
               className="w-3 h-3 rounded-sm shrink-0"
               style={{ backgroundColor: colorMap[name] }}
             />
-            <span className="text-xs text-slate-300 truncate max-w-[120px]">
+            <span className="text-xs text-slate-600 dark:text-slate-300 truncate max-w-[120px]">
               {name}
             </span>
           </div>

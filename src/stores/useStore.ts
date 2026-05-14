@@ -5,6 +5,7 @@ import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
 import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown } from "../types";
 
 type TabId = "dashboard" | "breakdown";
+type Theme = "light" | "dark";
 
 interface Store {
   tracker: TrackerState;
@@ -12,6 +13,7 @@ interface Store {
   selectedDate: string;
   loading: boolean;
   activeTab: TabId;
+  theme: Theme;
   hourlyBreakdown: HourlyAppBreakdown[];
   dailyBreakdown: DailyAppBreakdown[];
   autoStartEnabled: boolean;
@@ -19,6 +21,7 @@ interface Store {
   setDate: (date: string) => Promise<void>;
   refresh: () => Promise<void>;
   setActiveTab: (tab: TabId) => void;
+  setTheme: (theme: Theme) => void;
   loadHourlyBreakdown: (date: string) => Promise<void>;
   loadDailyBreakdown: () => Promise<void>;
   checkAutoStart: () => Promise<void>;
@@ -46,11 +49,20 @@ export const useStore = create<Store>((set, get) => ({
   selectedDate: new Date().toISOString().slice(0, 10),
   loading: false,
   activeTab: "dashboard",
+  theme: (localStorage.getItem("theme") as Theme) || "dark",
   hourlyBreakdown: [],
   dailyBreakdown: [],
   autoStartEnabled: false,
 
   init: async () => {
+    // Apply theme on load
+    const currentTheme = get().theme;
+    if (currentTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+
     const unlisten = await listen<TrackerState>("tracker-state", (event) => {
       set({ tracker: event.payload });
     });
@@ -91,6 +103,16 @@ export const useStore = create<Store>((set, get) => ({
 
   setActiveTab: (tab: TabId) => {
     set({ activeTab: tab });
+  },
+
+  setTheme: (theme: Theme) => {
+    localStorage.setItem("theme", theme);
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    set({ theme });
   },
 
   loadHourlyBreakdown: async (date: string) => {

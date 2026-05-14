@@ -24,5 +24,9 @@
   "loading": "加载中...",
   "refresh": "刷新",
   "refresh.loading": "刷新中...",
-  "date.label": "日期"
+  "date.label": "日期",
+  "settings.title": "设置",
+  "settings.theme": "主题",
+  "settings.theme.light": "浅色",
+  "settings.theme.dark": "深色"
 }

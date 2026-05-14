@@ -154,3 +154,30 @@
 - **便携化（绿色）支持**: 调整后端持久化数据保存路径配置，将其从系统级别的 AppData 文件目录转移至与运行程序同级的所在目录，确保产品能够达到绿色运行的便携目的。
 - **Tauri 事件拦截与析构**: 更新前端 `useStore:init` 函数结构，将事件的订阅过程置于命令执行之上，同时将返回的 `unlisten()` 函数暴露给 `useEffect` 的清理周期执行。
 - **UI 组件视觉调整**: 缩小 `AppRanking` 的展示图标大小 (`w-8 h-8` -> `w-6 h-6`)，让数据列表呈现更紧凑的外观。
+
+## 2026-05-14 — 设置页面重构与浅色主题适配 (Phase 5)
+
+### 视图路由与导航改造 (`App.tsx`)
+
+- **全局视图状态**: 新增 `currentView` 状态 (`'dashboard' | 'settings'`)，实现基于 Header 导航的单页视图切换，取代原有的弹窗式设置。
+- **导航按钮**: Header 右侧新增仪表盘（网格图标）和设置（齿轮图标）两个 `NavButton`，选中态使用 `bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400` 高亮。
+- **视图切换动画**: 在 `tailwind.config.js` 中添加 `fadeIn` keyframes 动画（200ms ease-in-out），`<main>` 区域以 `key={currentView}` 触发重新挂载时播放淡入效果。
+- **状态保持**: 视图切换仅替换 `<main>` 内部内容，`<I18nProvider>` 和 Zustand store 保持挂载，追踪线程不受视图切换影响。
+
+### 设置页面组件化 (`SettingsPage.tsx`)
+
+- **移除弹窗层**: 删除 `SettingsDialog.tsx` 中的 `fixed inset-0 bg-black/50` 遮罩背景、`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2` 居中定位及 `z-40`/`z-50` 层级代码。
+- **转为全页布局**: `SettingsPage.tsx` 采用与 Dashboard 一致的 `max-w-4xl mx-auto` 容器，白底卡片包裹（`bg-white dark:bg-slate-900`），去除内部 `isOpen` 状态和触发按钮。
+- **删除旧文件**: `SettingsDialog.tsx` 已移除，`App.tsx` 导入改为 `SettingsPage`。
+
+### 浅色主题适配 (`StackedBarChart.tsx`)
+
+- **标题**: `text-slate-100` → `text-slate-900 dark:text-slate-100`
+- **分段控制器容器**: `bg-slate-950/50 border-slate-800/60` → `bg-slate-100 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800/60`
+- **分段控制器按钮**: 选中态 `bg-indigo-500/10 text-indigo-400` → `bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400`；未选中态 `text-slate-400 hover:text-slate-300 hover:bg-slate-800/50` → `text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/50`
+- **图表坐标轴与网格**: `CartesianGrid` 描边、`XAxis`/`YAxis` tick 填充色、`Tooltip` cursor 填充色均通过 `useStore` 获取当前主题动态切换（暗色 `#1e293b`/`#94a3b8`，浅色 `#e2e8f0`/`#64748b`）
+- **图例文本**: `text-slate-300` → `text-slate-600 dark:text-slate-300`
+- **Tooltip 百分比**: `text-slate-400 dark:text-slate-500` → `text-slate-500 dark:text-slate-400`，与 `AppRanking.tsx` 中的辅助文本色阶保持一致
+
+### 编译验证
+- `npx tsc --noEmit` 通过，无类型错误

@@ -24,5 +24,9 @@
   "loading": "Loading...",
   "refresh": "Refresh",
   "refresh.loading": "Refreshing...",
-  "date.label": "Date"
+  "date.label": "Date",
+  "settings.title": "Settings",
+  "settings.theme": "Theme",
+  "settings.theme.light": "Light",
+  "settings.theme.dark": "Dark"
 }

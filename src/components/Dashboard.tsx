@@ -32,12 +32,10 @@ export function Dashboard() {
   const loading = useStore((s) => s.loading);
   const hourlyBreakdown = useStore((s) => s.hourlyBreakdown);
   const dailyBreakdown = useStore((s) => s.dailyBreakdown);
-  const autoStartEnabled = useStore((s) => s.autoStartEnabled);
   const setDate = useStore((s) => s.setDate);
   const refresh = useStore((s) => s.refresh);
   const loadHourlyBreakdown = useStore((s) => s.loadHourlyBreakdown);
   const loadDailyBreakdown = useStore((s) => s.loadDailyBreakdown);
-  const toggleAutoStart = useStore((s) => s.toggleAutoStart);
   const { t, locale } = useT();
 
   useEffect(() => {
@@ -63,16 +61,16 @@ export function Dashboard() {
               tracker.is_running ? "bg-green-500" : "bg-red-500"
             }`}
           />
-          <span className="text-sm text-slate-400">
+          <span className="text-sm text-slate-500 dark:text-slate-400">
             {tracker.is_running ? t("status.tracking") : t("status.stopped")}
           </span>
         </div>
         {tracker.is_afk && (
-          <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">
+          <span className="text-xs bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded">
             {t("status.afk")}
           </span>
         )}
-        <div className="text-sm text-slate-400 flex items-center gap-1.5">
+        <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
           {t("status.current")}:{" "}
           {tracker.current_icon && (
             <img
@@ -81,36 +79,17 @@ export function Dashboard() {
               className="w-4 h-4 rounded-sm"
             />
           )}
-          <span className="text-slate-200">
+          <span className="text-slate-800 dark:text-slate-200">
             {tracker.current_app || "—"}
           </span>
           {tracker.current_title && (
-            <span className="text-slate-500 ml-1">— {tracker.current_title}</span>
+            <span className="text-slate-400 dark:text-slate-500 ml-1">— {tracker.current_title}</span>
           )}
         </div>
 
-        {/* Auto-start toggle */}
-        <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer ml-auto select-none">
-          <span>{t("autostart.label")}</span>
-          <button
-            role="switch"
-            aria-checked={autoStartEnabled}
-            onClick={toggleAutoStart}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-              autoStartEnabled ? "bg-indigo-600" : "bg-slate-700"
-            }`}
-          >
-            <span
-              className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
-                autoStartEnabled ? "translate-x-4" : "translate-x-1"
-              }`}
-            />
-          </button>
-        </label>
-
-        <div className="text-sm text-slate-400">
+        <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 ml-auto">
           {t("status.today")}:{" "}
-          <span className="text-slate-200 font-mono">
+          <span className="text-slate-800 dark:text-slate-200 font-mono">
             {formatTime(tracker.today_total_seconds)}
           </span>
         </div>
@@ -122,12 +101,12 @@ export function Dashboard() {
           type="date"
           value={selectedDate}
           onChange={(e) => setDate(e.target.value)}
-          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-200"
+          className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200"
         />
         <button
           onClick={() => refresh()}
           disabled={loading}
-          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-50"
+          className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white transition-colors disabled:opacity-50"
         >
           {loading ? t("refresh.loading") : t("refresh")}
         </button>
@@ -138,15 +117,15 @@ export function Dashboard() {
         {summary && (
           <>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
-                <div className="text-sm text-slate-400 mb-1">{t("summary.total")}</div>
-                <div className="text-3xl font-bold text-white tabular-nums">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm dark:shadow-none">
+                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.total")}</div>
+                <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
                   {formatDuration(summary.total_seconds, locale)}
                 </div>
               </div>
-              <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
-                <div className="text-sm text-slate-400 mb-1">{t("summary.apps")}</div>
-                <div className="text-3xl font-bold text-white tabular-nums">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm dark:shadow-none">
+                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.apps")}</div>
+                <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
                   {summary.apps.length}
                 </div>
               </div>

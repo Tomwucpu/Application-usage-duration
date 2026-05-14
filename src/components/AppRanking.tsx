@@ -46,11 +46,11 @@ export function AppRanking({ apps, totalSeconds }: Props) {
   const topApps = apps.slice(0, 15);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
-      <h2 className="text-lg font-semibold mb-4">{t("chart.ranking")}</h2>
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm dark:shadow-none">
+      <h2 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-4">{t("chart.ranking")}</h2>
 
       {topApps.length === 0 && (
-        <div className="text-center text-slate-500 py-8">{t("loading")}</div>
+        <div className="text-center text-slate-500 dark:text-slate-400 py-8">{t("loading")}</div>
       )}
 
       <div className="space-y-2">
@@ -73,14 +73,14 @@ export function AppRanking({ apps, totalSeconds }: Props) {
               {/* Name + bar */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-sm text-slate-200 truncate">
+                  <span className="text-sm text-slate-800 dark:text-slate-200 truncate">
                     {displayName}
                   </span>
-                  <span className="text-xs text-slate-400 ml-2 flex-shrink-0">
+                  <span className="text-xs text-slate-500 dark:text-slate-400 ml-2 flex-shrink-0">
                     {formatDuration(app.total_seconds, locale)}
                   </span>
                 </div>
-                <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
@@ -92,7 +92,7 @@ export function AppRanking({ apps, totalSeconds }: Props) {
               </div>
 
               {/* Percentage */}
-              <span className="w-10 text-xs text-slate-500 tabular-nums text-right">
+              <span className="w-10 text-xs text-slate-500 dark:text-slate-400 tabular-nums text-right">
                 {pct}%
               </span>
             </div>
