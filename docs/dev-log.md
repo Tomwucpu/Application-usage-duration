@@ -181,3 +181,31 @@
 
 ### 编译验证
 - `npx tsc --noEmit` 通过，无类型错误
+
+## 2026-05-14 — 自定义滚动条与语言选择器改造 (Phase 6)
+
+### 自定义滚动条 (`index.css`, `App.tsx`)
+
+- **页面布局重构**: 外层容器由 `min-h-screen` 改为 `h-screen flex flex-col overflow-hidden`，页面固定视口高度，禁止 body 级别滚动
+- **内容区滚动**: `<main>` 添加 `flex-1 overflow-y-auto custom-scrollbar`，内容在内部滚动而非整个页面滚动
+- **滚动条样式** (`.custom-scrollbar`):
+  - Firefox: `scrollbar-width: thin` + `scrollbar-color`，深色主题使用 `#475569`，浅色使用 `#cbd5e1`
+  - Chrome/Edge/Safari: `::-webkit-scrollbar` 全系列伪元素，6px 宽度，透明轨道，圆角滑块（`border-radius: 3px`），hover 变深
+  - 深色/浅色主题通过 `.dark .custom-scrollbar` 分别适配
+
+### 语言选择器改造 (`SettingsPage.tsx`, `App.tsx`)
+
+- **移除 header 语言按钮**: 删除 `LanguageSwitcher` 组件导入及 header 中的切换按钮，语言设置迁移至设置页
+- **LocaleSelect 自定义下拉组件**:
+  - 替代原生 `<select>`，使用按钮 + 下拉菜单模式，完全控制样式
+  - 按钮显示当前语言 + 箭头图标（`rotate-180` 动效），样式与设置页其他控件统一
+  - 下拉菜单: 两个语言选项，选中项 `text-indigo-600 bg-indigo-50` 高亮，未选中项 hover 有背景反馈
+  - 点击菜单外部自动关闭（`mousedown` 事件监听）
+  - 深色/浅色主题完整适配
+
+### i18n 扩展 (`zh-CN.json`, `en-US.json`)
+
+- 新增翻译键: `settings.language`、`settings.language.zh-CN`、`settings.language.en-US`
+
+### 编译验证
+- `npx tsc --noEmit` 通过，无类型错误

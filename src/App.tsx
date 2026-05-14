@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { I18nProvider, useT } from "./i18n";
 import { useStore } from "./stores/useStore";
 import { Dashboard } from "./components/Dashboard";
-import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { SettingsPage } from "./components/SettingsPage";
 
 type View = "dashboard" | "settings";
@@ -46,7 +45,7 @@ function AppInner() {
   }, [init]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
+    <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       <header className="border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight">{t("app.title")}</h1>
         <div className="flex items-center gap-1">
@@ -72,12 +71,9 @@ function AppInner() {
               <circle cx="12" cy="12" r="3" />
             </svg>
           </NavButton>
-          <div className="ml-2">
-            <LanguageSwitcher />
-          </div>
         </div>
       </header>
-      <main className="p-6" key={currentView}>
+      <main className="flex-1 overflow-y-auto custom-scrollbar p-6" key={currentView}>
         <div className="animate-fadeIn">
           {currentView === "dashboard" ? <Dashboard /> : <SettingsPage />}
         </div>

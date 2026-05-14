@@ -28,5 +28,8 @@
   "settings.title": "Settings",
   "settings.theme": "Theme",
   "settings.theme.light": "Light",
-  "settings.theme.dark": "Dark"
+  "settings.theme.dark": "Dark",
+  "settings.language": "Language",
+  "settings.language.zh-CN": "中文",
+  "settings.language.en-US": "English"
 }
