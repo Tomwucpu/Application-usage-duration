@@ -3,11 +3,31 @@ mod icon;
 mod tracker;
 mod tray;
 
-use db::{DailyAppBreakdown, DailySummary, Database, HourlyAppBreakdown};
+use db::{DailyAppBreakdown, DailySummary, Database, HourlyAppBreakdown, UsageRecord};
 use icon::IconCache;
 use std::sync::Arc;
 use tauri::{App, Manager, WindowEvent};
 use tracker::Tracker;
+
+#[tauri::command]
+fn get_setting(key: String, db: tauri::State<Arc<Database>>) -> Result<Option<String>, String> {
+    db.get_setting(&key)
+}
+
+#[tauri::command]
+fn set_setting(key: String, value: String, db: tauri::State<Arc<Database>>) -> Result<(), String> {
+    db.set_setting(&key, &value)
+}
+
+#[tauri::command]
+fn get_all_app_names(db: tauri::State<Arc<Database>>) -> Result<Vec<String>, String> {
+    db.get_all_app_names()
+}
+
+#[tauri::command]
+fn get_all_records(db: tauri::State<Arc<Database>>) -> Result<Vec<UsageRecord>, String> {
+    db.get_all_records()
+}
 
 #[tauri::command]
 fn get_daily_summary(
@@ -85,6 +105,14 @@ pub fn run() {
                 .expect("failed to resolve exe directory");
 
             let database = Arc::new(Database::new(app_dir).expect("failed to initialize database"));
+            
+            // Clean up old records if setting exists
+            if let Ok(Some(days_str)) = database.get_setting("retention_days") {
+                if let Ok(days) = days_str.parse::<u32>() {
+                    let _ = database.cleanup_old_records(days);
+                }
+            }
+
             let icon_cache = Arc::new(IconCache::new());
             let tracker = Arc::new(Tracker::new(database.clone(), icon_cache.clone()));
 
@@ -106,7 +134,11 @@ pub fn run() {
             get_daily_summary,
             get_hourly_app_breakdown,
             get_daily_app_breakdown,
-            start_tracking
+            start_tracking,
+            get_setting,
+            set_setting,
+            get_all_app_names,
+            get_all_records
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -32,4 +32,14 @@
   "settings.language": "Language",
   "settings.language.zh-CN": "中文",
   "settings.language.en-US": "English"
+  ,
+  "settings.export.title": "Data Export",
+  "settings.export.json": "Export JSON",
+  "settings.export.csv": "Export CSV",
+  "settings.retention.title": "Data Retention",
+  "settings.retention.permanent": "Keep forever",
+  "settings.retention.custom": "Custom (days)",
+  "settings.retention.save": "Save",
+  "settings.ignored.title": "Ignored Applications",
+  "settings.ignored.enabled": "Enable ignored apps"
 }

@@ -274,6 +274,47 @@ mod platform {
 
 use platform::{get_active_window_info, get_idle_seconds};
 
+fn should_ignore_app_from_settings(
+    settings: Option<&HashMap<String, String>>,
+    app: &str,
+) -> bool {
+    let Some(settings) = settings else {
+        return false;
+    };
+
+    let ignored_apps = settings
+        .get("ignored_apps")
+        .and_then(|value| serde_json::from_str::<Vec<String>>(value).ok())
+        .unwrap_or_default();
+
+    let ignored_enabled = settings
+        .get("ignored_apps_enabled")
+        .map(|value| value == "true")
+        .unwrap_or_else(|| !ignored_apps.is_empty());
+
+    ignored_enabled && ignored_apps.iter().any(|name| name == app)
+}
+
+fn should_ignore_app(db: &Database, app: &str) -> bool {
+    let ignored_apps_enabled = db
+        .get_setting("ignored_apps_enabled")
+        .ok()
+        .flatten()
+        .map(|value| ("ignored_apps_enabled".to_string(), value));
+    let ignored_apps = db
+        .get_setting("ignored_apps")
+        .ok()
+        .flatten()
+        .map(|value| ("ignored_apps".to_string(), value));
+
+    let settings: HashMap<String, String> = ignored_apps_enabled
+        .into_iter()
+        .chain(ignored_apps)
+        .collect();
+
+    should_ignore_app_from_settings(Some(&settings), app)
+}
+
 pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
     if tracker.thread_spawned.swap(true, Ordering::SeqCst) {
         return; // Tracking thread already running
@@ -311,7 +352,8 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                     if let (Some(ref app), Some(start)) = (&last_app, last_start) {
                         if app != "AFK" {
                             let duration = (now - start).num_seconds();
-                            if duration > 0 {
+                            let is_ignored = should_ignore_app(db.as_ref(), app);
+                            if duration > 0 && !is_ignored {
                                 let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
                                 let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
                                 let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
@@ -341,7 +383,8 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
             if is_idle && !current_state.is_afk {
                 if let (Some(ref app), Some(start)) = (&last_app, last_start) {
                     let duration = (now - start).num_seconds();
-                    if duration > 0 {
+                    let is_ignored = should_ignore_app(db.as_ref(), app);
+                    if duration > 0 && !is_ignored {
                         let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
                         let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
                         let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
@@ -396,7 +439,8 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                         if let (Some(ref prev_app), Some(start)) = (&last_app, last_start) {
                             if prev_app != "AFK" {
                                 let duration = (now - start).num_seconds();
-                                if duration > 0 {
+                                let is_ignored = should_ignore_app(db.as_ref(), prev_app);
+                                if duration > 0 && !is_ignored {
                                     let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
                                     let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
                                     let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
@@ -441,4 +485,51 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_ignore_app_from_settings;
+    use std::collections::HashMap;
+
+    #[test]
+    fn ignores_listed_app_when_feature_enabled() {
+        let settings = HashMap::from([
+            ("ignored_apps_enabled".to_string(), "true".to_string()),
+            ("ignored_apps".to_string(), "[\"WeChat\"]".to_string()),
+        ]);
+
+        assert!(should_ignore_app_from_settings(Some(&settings), "WeChat"));
+    }
+
+    #[test]
+    fn does_not_ignore_when_feature_disabled_even_if_listed() {
+        let settings = HashMap::from([
+            ("ignored_apps_enabled".to_string(), "false".to_string()),
+            ("ignored_apps".to_string(), "[\"WeChat\"]".to_string()),
+        ]);
+
+        assert!(!should_ignore_app_from_settings(Some(&settings), "WeChat"));
+    }
+
+    #[test]
+    fn falls_back_to_enabled_when_flag_missing_and_list_has_items() {
+        let settings = HashMap::from([("ignored_apps".to_string(), "[\"WeChat\"]".to_string())]);
+
+        assert!(should_ignore_app_from_settings(Some(&settings), "WeChat"));
+    }
+
+    #[test]
+    fn falls_back_to_disabled_when_flag_missing_and_list_is_empty() {
+        let settings = HashMap::from([("ignored_apps".to_string(), "[]".to_string())]);
+
+        assert!(!should_ignore_app_from_settings(Some(&settings), "WeChat"));
+    }
+
+    #[test]
+    fn falls_back_to_disabled_when_flag_and_list_are_missing() {
+        let settings = HashMap::new();
+
+        assert!(!should_ignore_app_from_settings(Some(&settings), "WeChat"));
+    }
 }

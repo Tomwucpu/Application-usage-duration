@@ -52,3 +52,15 @@ export interface DailyAppBreakdown {
   percentage: number;
   icon_base64: string;
 }
+
+export interface UsageRecord {
+  id: number;
+  app_name: string;
+  app_path: string | null;
+  window_title: string | null;
+  start_time: string;
+  end_time: string;
+  duration_seconds: number;
+  date: string;
+  hour: number;
+}

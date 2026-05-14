@@ -2,7 +2,14 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
-import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown } from "../types";
+import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown, UsageRecord } from "../types";
+
+export const api = {
+  getSetting: (key: string) => invoke<string | null>("get_setting", { key }),
+  setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
+  getAllAppNames: () => invoke<string[]>("get_all_app_names"),
+  getAllRecords: () => invoke<UsageRecord[]>("get_all_records"),
+};
 
 type TabId = "dashboard" | "breakdown";
 type Theme = "light" | "dark";

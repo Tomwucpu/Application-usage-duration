@@ -32,4 +32,14 @@
   "settings.language": "语言",
   "settings.language.zh-CN": "中文",
   "settings.language.en-US": "English"
+  ,
+  "settings.export.title": "数据导出",
+  "settings.export.json": "导出 JSON",
+  "settings.export.csv": "导出 CSV",
+  "settings.retention.title": "数据保留",
+  "settings.retention.permanent": "永久保留",
+  "settings.retention.custom": "自定义（天）",
+  "settings.retention.save": "保存",
+  "settings.ignored.title": "忽略的应用",
+  "settings.ignored.enabled": "启用忽略应用"
 }

@@ -43,6 +43,19 @@ pub struct DailyAppBreakdown {
     pub icon_base64: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageRecord {
+    pub id: i64,
+    pub app_name: String,
+    pub app_path: Option<String>,
+    pub window_title: Option<String>,
+    pub start_time: String,
+    pub end_time: String,
+    pub duration_seconds: i64,
+    pub date: String,
+    pub hour: i32,
+}
+
 pub struct Database {
     pub conn: Mutex<Connection>,
 }
@@ -68,6 +81,10 @@ impl Database {
             CREATE TABLE IF NOT EXISTS app_metadata (
                 app_name TEXT PRIMARY KEY,
                 app_path TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_date ON usage_records(date);
             CREATE INDEX IF NOT EXISTS idx_hour ON usage_records(date, hour);
@@ -304,6 +321,85 @@ impl Database {
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())
+    }
+
+    pub fn get_setting(&self, key: &str) -> Result<Option<String>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        match conn.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params![key],
+            |row| row.get(0),
+        ) {
+            Ok(val) => Ok(Some(val)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.to_string()),
+        }
+    }
+
+    pub fn set_setting(&self, key: &str, value: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            params![key, value],
+        )
+        .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    pub fn get_all_app_names(&self) -> Result<Vec<String>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT DISTINCT app_name FROM usage_records ORDER BY app_name")
+            .map_err(|e| e.to_string())?;
+        let names = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(names)
+    }
+
+    pub fn get_all_records(&self) -> Result<Vec<UsageRecord>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT id, app_name, app_path, window_title, start_time, end_time, duration_seconds, date, hour FROM usage_records ORDER BY start_time DESC")
+            .map_err(|e| e.to_string())?;
+        let records = stmt
+            .query_map([], |row| {
+                Ok(UsageRecord {
+                    id: row.get(0)?,
+                    app_name: row.get(1)?,
+                    app_path: row.get(2).ok(),
+                    window_title: row.get(3).ok(),
+                    start_time: row.get(4)?,
+                    end_time: row.get(5)?,
+                    duration_seconds: row.get(6)?,
+                    date: row.get(7)?,
+                    hour: row.get(8)?,
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(records)
+    }
+
+    pub fn cleanup_old_records(&self, days: u32) -> Result<usize, String> {
+        if days == 0 {
+            return Ok(0); // 0 means keep forever
+        }
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        // SQLite date function can be used: date('now', '-X days')
+        // However, duration modifier requires formatting like '-30 days'
+        let modifier = format!("-{} days", days);
+        let deleted = conn
+            .execute(
+                "DELETE FROM usage_records WHERE date < date('now', 'localtime', ?1)",
+                params![modifier],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(deleted)
     }
 
 }
