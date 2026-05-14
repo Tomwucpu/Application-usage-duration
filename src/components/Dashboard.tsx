@@ -3,7 +3,6 @@ import { useStore } from "../stores/useStore";
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
 import { AppRanking } from "./AppRanking";
-import { UsageCharts } from "./UsageCharts";
 import { StackedBarChart } from "./StackedBarChart";
 
 function formatDuration(seconds: number, locale: Locale): string {
@@ -26,43 +25,32 @@ function formatTime(seconds: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-const TABS = [
-  { id: "dashboard", key: "tab.dashboard" },
-  { id: "breakdown", key: "tab.breakdown" },
-] as const;
-
 export function Dashboard() {
   const tracker = useStore((s) => s.tracker);
   const summary = useStore((s) => s.summary);
   const selectedDate = useStore((s) => s.selectedDate);
   const loading = useStore((s) => s.loading);
-  const activeTab = useStore((s) => s.activeTab);
   const hourlyBreakdown = useStore((s) => s.hourlyBreakdown);
   const dailyBreakdown = useStore((s) => s.dailyBreakdown);
   const autoStartEnabled = useStore((s) => s.autoStartEnabled);
   const setDate = useStore((s) => s.setDate);
   const refresh = useStore((s) => s.refresh);
-  const setActiveTab = useStore((s) => s.setActiveTab);
   const loadHourlyBreakdown = useStore((s) => s.loadHourlyBreakdown);
   const loadDailyBreakdown = useStore((s) => s.loadDailyBreakdown);
   const toggleAutoStart = useStore((s) => s.toggleAutoStart);
   const { t, locale } = useT();
 
   useEffect(() => {
-    if (activeTab === "breakdown") {
-      if (hourlyBreakdown.length === 0) {
-        loadHourlyBreakdown(selectedDate);
-      }
-      if (dailyBreakdown.length === 0) {
-        loadDailyBreakdown();
-      }
-    }
-  }, [activeTab, hourlyBreakdown.length, dailyBreakdown.length, loadHourlyBreakdown, loadDailyBreakdown, selectedDate]);
-
-  useEffect(() => {
-    if (activeTab === "breakdown") {
+    if (hourlyBreakdown.length === 0) {
       loadHourlyBreakdown(selectedDate);
     }
+    if (dailyBreakdown.length === 0) {
+      loadDailyBreakdown();
+    }
+  }, [hourlyBreakdown.length, dailyBreakdown.length, loadHourlyBreakdown, loadDailyBreakdown, selectedDate]);
+
+  useEffect(() => {
+    loadHourlyBreakdown(selectedDate);
   }, [selectedDate]);
 
   return (
@@ -145,66 +133,38 @@ export function Dashboard() {
         </button>
       </div>
 
-      {/* Tab navigation */}
-      <div className="flex border-b border-slate-800">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              activeTab === tab.id
-                ? "text-indigo-400 border-indigo-500"
-                : "text-slate-500 border-transparent hover:text-slate-300"
-            }`}
-          >
-            {t(tab.key)}
-          </button>
-        ))}
-      </div>
-
-      {/* Dashboard tab content */}
-      {activeTab === "dashboard" && (
-        <>
-          {summary && (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
-                  <div className="text-sm text-slate-400 mb-1">{t("summary.total")}</div>
-                  <div className="text-3xl font-bold text-white tabular-nums">
-                    {formatDuration(summary.total_seconds, locale)}
-                  </div>
-                </div>
-                <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
-                  <div className="text-sm text-slate-400 mb-1">{t("summary.apps")}</div>
-                  <div className="text-3xl font-bold text-white tabular-nums">
-                    {summary.apps.length}
-                  </div>
+      {/* Dashboard content */}
+      <>
+        {summary && (
+          <>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
+                <div className="text-sm text-slate-400 mb-1">{t("summary.total")}</div>
+                <div className="text-3xl font-bold text-white tabular-nums">
+                  {formatDuration(summary.total_seconds, locale)}
                 </div>
               </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-lg p-5">
+                <div className="text-sm text-slate-400 mb-1">{t("summary.apps")}</div>
+                <div className="text-3xl font-bold text-white tabular-nums">
+                  {summary.apps.length}
+                </div>
+              </div>
+            </div>
 
-              <UsageCharts
-                apps={summary.apps}
-                totalSeconds={summary.total_seconds}
-                hourly={summary.hourly}
-              />
+            <StackedBarChart
+              hourlyData={hourlyBreakdown}
+              dailyData={dailyBreakdown}
+            />
 
-              <AppRanking apps={summary.apps} totalSeconds={summary.total_seconds} />
-            </>
-          )}
+            <AppRanking apps={summary.apps} totalSeconds={summary.total_seconds} />
+          </>
+        )}
 
-          {!summary && (
-            <div className="text-center text-slate-500 py-12">{t("loading")}</div>
-          )}
-        </>
-      )}
-
-      {/* Breakdown tab content */}
-      {activeTab === "breakdown" && (
-        <StackedBarChart
-          hourlyData={hourlyBreakdown}
-          dailyData={dailyBreakdown}
-        />
-      )}
+        {!summary && (
+          <div className="text-center text-slate-500 py-12">{t("loading")}</div>
+        )}
+      </>
     </div>
   );
 }

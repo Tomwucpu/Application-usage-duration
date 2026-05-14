@@ -229,21 +229,21 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="bg-slate-900 border border-slate-800 rounded-lg p-5 flex flex-col space-y-5 shadow-sm">
       {/* View title + switcher */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-slate-300">
+        <h2 className="text-lg font-semibold text-slate-100">
           {t("breakdown.title")}
-        </h3>
-        <div className="inline-flex bg-slate-800 rounded-lg p-0.5">
+        </h2>
+        <div className="inline-flex bg-slate-950/50 rounded-lg p-1 border border-slate-800/60">
           {(["daily", "weekly"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
                 viewMode === mode
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-400 hover:text-slate-300"
+                  ? "bg-indigo-500/10 text-indigo-400 shadow-sm"
+                  : "text-slate-400 hover:text-slate-300 hover:bg-slate-800/50"
               }`}
             >
               {t(`breakdown.${mode}`)}
@@ -253,11 +253,12 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
       </div>
 
       {/* Chart */}
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
-        <ResponsiveContainer width="100%" height={400}>
+      <div className="w-full h-[400px]">
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart
+            key={viewMode}
             data={chartData}
-            margin={{ top: 4, right: 4, bottom: 4, left: 0 }}
+            margin={{ top: 10, right: 4, bottom: 4, left: 0 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
             <XAxis
@@ -290,22 +291,24 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
                   i === appNames.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]
                 }
                 maxBarSize={viewMode === "daily" ? 16 : 40}
-                isAnimationActive={false}
+                isAnimationActive={true}
+                animationDuration={500}
+                animationEasing="ease-out"
               />
             ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {/* Legend / Annotations */}
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-1 pt-2">
         {appNames.map((name) => (
-          <div key={name} className="flex items-center gap-1">
+          <div key={name} className="flex items-center gap-1.5">
             <span
-              className="w-2.5 h-2.5 rounded-sm shrink-0"
+              className="w-3 h-3 rounded-sm shrink-0"
               style={{ backgroundColor: colorMap[name] }}
             />
-            <span className="text-[10px] text-slate-400 truncate max-w-[80px]">
+            <span className="text-xs text-slate-300 truncate max-w-[120px]">
               {name}
             </span>
           </div>

@@ -107,6 +107,20 @@
 
 - **删除文件**: `HeatmapChart.tsx`、`TimelineView.tsx`
 
+## 2026-05-14 — UI 精简与视图整合优化 (Phase 4)
+
+### 前端改造
+- **去除独立图表模块**: 精简掉“分时使用时长”柱状图与单独的“应用占比分布”饼图，删除不再使用的 `UsageCharts.tsx` 页面组件。
+- **视图整合至 Dashboard 主卡片**: 将“应用使用分布” (StackedBarChart) 提取展示于 `Dashboard.tsx` 仪表板主页之中，去除了外层的独立 Tab （Dashboard/Breakdown）导航，直接一站式集中信息。
+- **StackedBarChart 设计及动画加强**:
+  - 更新卡片容器背景包裹 （`bg-slate-900 border` 等暗色系美化）。
+  - 修改“日视图/周视图”内嵌小切换栏样式及 Hover 动效 (`transition-all duration-200`)。
+  - 将各类应用的调色板小方块色卡注释图例，位置统一下移并呈现横向居中排列 (`justify-center gap-x-4 px-1 pt-2`)。
+  - 给 `<BarChart>` 分发强置挂载点 (`key={viewMode}`)，并启用内置生长动画特效 (`isAnimationActive`, `animationDuration={500}`, `animationEasing="ease-out"`) 营造连贯拔高的出入场视效体验。
+
+### 遗留修复与编译维护
+- **自动清除闲置块**: 排除了因组件精简或挪动遗留下来的大量过期状态和状态属性订阅如 `activeTabs` 及无关依赖项。确保 Vite 及 TSC 本地 `npm run build` 全部正确编译通过。
+
 ### 后端编译验证
 - `cargo build` 通过，无错误
 - `npx tsc --noEmit` 通过，无类型错误
