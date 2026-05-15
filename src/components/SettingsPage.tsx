@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { useStore, api } from "../stores/useStore";
 import { useT, type Locale } from "../i18n";
+import { ToastStack, type ToastMessage, type ToastTone } from "./ToastStack";
+import {
+  buildCsvExport,
+  buildJsonExport,
+  getExportFileName,
+  type ExportFormat,
+} from "../utils/exportUtils";
 
 const localeOptions: { value: Locale; labelKey: "settings.language.zh-CN" | "settings.language.en-US" }[] = [
   { value: "zh-CN", labelKey: "settings.language.zh-CN" },
@@ -18,6 +25,18 @@ function parseIgnoredApps(value: string | null): string[] {
   } catch {
     return [];
   }
+}
+
+type WindowWithSaveFilePicker = Window & {
+  showSaveFilePicker?: (
+    options?: {
+      suggestedName?: string;
+      types?: Array<{
+        description?: string;
+        accept: Record<string, string[]>;
+      }>;
+    },
+  ) => Promise<FileSystemFileHandle>;
 }
 
 function LocaleSelect() {
@@ -92,6 +111,9 @@ export function SettingsPage() {
   const [ignoredEnabled, setIgnoredEnabled] = useState(false);
   const [retentionMode, setRetentionMode] = useState<"permanent" | "custom">("permanent");
   const [retentionDays, setRetentionDays] = useState<number>(30);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const toastTimerRef = useRef<number[]>([]);
+  const toastIdRef = useRef(0);
 
   useEffect(() => {
     (async () => {
@@ -123,6 +145,13 @@ export function SettingsPage() {
     })();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      toastTimerRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      toastTimerRef.current = [];
+    };
+  }, []);
+
   // auto-save retention when switching to permanent
   useEffect(() => {
     if (retentionMode === "permanent") {
@@ -151,42 +180,64 @@ export function SettingsPage() {
     }
   };
 
-  const exportJson = async () => {
-    const records = await api.getAllRecords();
-    const blob = new Blob([JSON.stringify(records, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `usage-export-${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  const removeToast = (id: number) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
   };
 
-  const exportCsv = async () => {
-    const records = await api.getAllRecords();
-    const header = ["id","app_name","app_path","window_title","start_time","end_time","duration_seconds","date","hour"];
-    const rows = records.map((r) => header.map((h) => {
-      const v = (r as any)[h];
-      if (v === null || v === undefined) return "";
-      const s = String(v).replace(/"/g, '""');
-      return `"${s}"`;
-    }).join(","));
-    const csv = [header.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `usage-export-${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+  const pushToast = (tone: ToastTone, message: string) => {
+    const id = toastIdRef.current + 1;
+    toastIdRef.current = id;
+
+    setToasts((current) => [...current, { id, tone, message }]);
+
+    const timerId = window.setTimeout(() => {
+      removeToast(id);
+      toastTimerRef.current = toastTimerRef.current.filter((existingId) => existingId !== timerId);
+    }, 2800);
+
+    toastTimerRef.current.push(timerId);
+  };
+
+  const handleExport = async (format: ExportFormat) => {
+    const pickerWindow = window as WindowWithSaveFilePicker;
+
+    if (typeof pickerWindow.showSaveFilePicker !== "function") {
+      pushToast("error", t("settings.export.unsupported"));
+      return;
+    }
+
+    try {
+      const records = await api.getAllRecords();
+      const content = format === "csv" ? buildCsvExport(records) : buildJsonExport(records);
+      const handle = await pickerWindow.showSaveFilePicker({
+        suggestedName: getExportFileName(format),
+        types: [
+          {
+            description: format === "csv" ? "CSV Files" : "JSON Files",
+            accept:
+              format === "csv"
+                ? { "text/csv": [".csv"] }
+                : { "application/json": [".json"] },
+          },
+        ],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(content);
+      await writable.close();
+      pushToast("success", t("settings.export.success"));
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        pushToast("info", t("settings.export.cancelled"));
+        return;
+      }
+
+      pushToast("error", t("settings.export.failed"));
+    }
   };
 
   return (
     <div className="max-w-4xl mx-auto">
+      <ToastStack messages={toasts} onClose={removeToast} />
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6 shadow-sm dark:shadow-none">
         <h2 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-6">{t("settings.title")}</h2>
 
@@ -229,13 +280,13 @@ export function SettingsPage() {
               role="switch"
               aria-checked={autoStartEnabled}
               onClick={toggleAutoStart}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+              className={`relative inline-flex h-5 w-[38px] items-center rounded-full transition-colors ${
                 autoStartEnabled ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
               }`}
             >
               <span
                 className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
-                  autoStartEnabled ? "translate-x-4" : "translate-x-1"
+                  autoStartEnabled ? "translate-x-5" : "translate-x-1"
                 }`}
               />
             </button>
@@ -255,13 +306,13 @@ export function SettingsPage() {
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <button
-                onClick={exportCsv}
+                onClick={() => void handleExport("csv")}
                 className="flex-1 px-4 py-2.5 rounded-md bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium text-sm transition-colors cursor-pointer shadow-sm hover:shadow-md"
               >
                 {t("settings.export.csv")}
               </button>
               <button
-                onClick={exportJson}
+                onClick={() => void handleExport("json")}
                 className="flex-1 px-4 py-2.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:bg-slate-300 dark:active:bg-slate-600 text-slate-900 dark:text-slate-100 font-medium text-sm transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
               >
                 {t("settings.export.json")}
@@ -315,28 +366,40 @@ export function SettingsPage() {
                 role="switch"
                 aria-checked={ignoredEnabled}
                 onClick={toggleIgnoredEnabled}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                className={`relative inline-flex h-5 w-[38px] items-center rounded-full transition-colors ${
                   ignoredEnabled ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
                 }`}
                 aria-label={t("settings.ignored.title")}
               >
                 <span
                   className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
-                    ignoredEnabled ? "translate-x-4" : "translate-x-1"
+                    ignoredEnabled ? "translate-x-5" : "translate-x-1"
                   }`}
                 />
               </button>
             </div>
-            {ignoredEnabled && (
-              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-auto mt-3">
-                {appNames.map((n) => (
-                  <label key={n} className="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-50 dark:hover:bg-slate-700">
-                    <input type="checkbox" checked={ignored.includes(n)} onChange={() => toggleIgnored(n)} aria-label={`Ignore ${n}`} />
-                    <span className="text-sm ml-1">{n}</span>
-                  </label>
-                ))}
-              </div>
-            )}
+            <div
+              className={`grid grid-cols-2 gap-2 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-in-out ${
+                ignoredEnabled
+                  ? "mt-3 max-h-[28rem] opacity-100 translate-y-0 pointer-events-auto"
+                  : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
+              }`}
+            >
+              {appNames.map((n) => (
+                <label
+                  key={n}
+                  className="flex items-center gap-2 rounded px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={ignored.includes(n)}
+                    onChange={() => toggleIgnored(n)}
+                    aria-label={`Ignore ${n}`}
+                  />
+                  <span className="text-sm ml-1">{n}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       </div>
