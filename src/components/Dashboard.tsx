@@ -3,6 +3,7 @@ import { useStore } from "../stores/useStore";
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
 import { AppRanking } from "./AppRanking";
+import { DatePicker } from "./DatePicker";
 import { StackedBarChart } from "./StackedBarChart";
 
 function formatDuration(seconds: number, locale: Locale): string {
@@ -95,18 +96,13 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Date picker + refresh + date label */}
-      <div className="flex items-center gap-2">
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setDate(e.target.value)}
-          className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200"
-        />
+      {/* Date picker + refresh */}
+      <div className="relative z-50 flex items-center justify-between gap-3 rounded-3xl border border-slate-200/70 bg-slate-100/60 p-2 shadow-inner shadow-white/70 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/50 dark:shadow-black/20">
+        <DatePicker value={selectedDate} onChange={setDate} locale={locale} />
         <button
           onClick={() => refresh()}
           disabled={loading}
-          className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded px-3 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white transition-colors disabled:opacity-50"
+          className="rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors duration-200 disabled:opacity-50 dark:border-slate-700/70 dark:bg-slate-900/90 dark:text-slate-300"
         >
           {loading ? t("refresh.loading") : t("refresh")}
         </button>

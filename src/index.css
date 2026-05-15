@@ -15,6 +15,140 @@ body {
   min-height: 100vh;
 }
 
+/* Custom Radio Button Styles */
+input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e2e8f0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: white;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+input[type="radio"]:hover {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+input[type="radio"]:checked {
+  background-color: #4f46e5;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background-color: white;
+  border-radius: 50%;
+}
+
+input[type="radio"]:focus {
+  outline: none;
+  ring: 2px;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+.dark input[type="radio"] {
+  background: #1e293b;
+  border-color: #64748b;
+}
+
+.dark input[type="radio"]:hover {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.dark input[type="radio"]:checked {
+  background-color: #6366f1;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* Custom Checkbox Styles */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e2e8f0;
+  border-radius: 4px;
+  cursor: pointer;
+  background: white;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+input[type="checkbox"]:hover {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+input[type="checkbox"]:checked {
+  background-color: #4f46e5;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: 6px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+.dark input[type="checkbox"] {
+  background: #1e293b;
+  border-color: #64748b;
+}
+
+.dark input[type="checkbox"]:hover {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.dark input[type="checkbox"]:checked {
+  background-color: #6366f1;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* Custom Number Input Styles - Hide Spinners */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 /* Custom scrollbar */
 .custom-scrollbar {
   scrollbar-width: thin;
@@ -48,4 +182,125 @@ body {
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #64748b;
+}
+
+.date-strip {
+  min-width: 240px;
+}
+
+.date-strip-arrow {
+  display: flex;
+  height: 2.5rem;
+  width: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.875rem;
+  color: #475569;
+}
+
+.dark .date-strip-arrow {
+  color: #cbd5e1;
+}
+
+.date-strip-display {
+  min-width: 160px;
+  padding: 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 2.5rem;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+
+.dark .date-strip-display {
+  color: #f8fafc;
+}
+
+.date-strip-today {
+  margin-left: 0.25rem;
+  min-width: 56px;
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  border-radius: 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.date-strip-today:disabled {
+  color: #94a3b8;
+  opacity: 0.7;
+}
+
+.dark .date-strip-today {
+  color: #cbd5e1;
+}
+
+.dark .date-strip-today:disabled {
+  color: #64748b;
+}
+
+.calendar-month-button {
+  display: flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.875rem;
+  color: #64748b;
+}
+
+.dark .calendar-month-button {
+  color: #94a3b8;
+}
+
+.calendar-day-button {
+  position: relative;
+  display: flex;
+  aspect-ratio: 1 / 1;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.calendar-day-muted {
+  color: #cbd5e1;
+}
+
+.calendar-day-selected {
+  color: #ffffff;
+  background: linear-gradient(135deg, #4f46e5, #0ea5e9);
+  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.24);
+}
+
+.dark .calendar-day-button {
+  color: #cbd5e1;
+}
+
+.dark .calendar-day-muted {
+  color: #475569;
+}
+
+.dark .calendar-day-selected,
+.dark .calendar-day-selected:hover {
+  color: #ffffff;
+  background: linear-gradient(135deg, #6366f1, #0ea5e9);
+  box-shadow: 0 14px 28px rgba(14, 165, 233, 0.18);
+}
+
+.date-calendar-popover {
+  animation: calendar-pop 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: top left;
+}
+
+@keyframes calendar-pop {
+  from {
+    transform: translateY(-8px) scale(0.97);
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
 }

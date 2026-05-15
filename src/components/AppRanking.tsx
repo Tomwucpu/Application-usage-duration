@@ -47,7 +47,7 @@ export function AppRanking({ apps, totalSeconds }: Props) {
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm dark:shadow-none">
-      <h2 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-4">{t("chart.ranking")}</h2>
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">{t("chart.ranking")}</h2>
 
       {topApps.length === 0 && (
         <div className="text-center text-slate-500 dark:text-slate-400 py-8">{t("loading")}</div>
