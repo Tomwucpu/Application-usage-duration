@@ -182,6 +182,33 @@
 ### 编译验证
 - `npx tsc --noEmit` 通过，无类型错误
 
+## 2026-05-16 — 设置页交互完善与文档补充
+
+### 设置页体验优化 (`SettingsPage.tsx`, `ToastStack.tsx`)
+
+- **数据保留保存提示**: 自定义保留天数点击“保存”后，复用现有 `ToastStack` 增加保存结果反馈。
+  - 成功时显示 `settings.retention.save_success`
+  - 失败时显示 `settings.retention.save_failed`
+- **导出按钮样式统一**: 将“导出 CSV”按钮样式调整为与“导出 JSON”一致，统一视觉层级与交互反馈。
+- **忽略应用列表图标展示**: 在“忽略的应用”列表中展示应用图标，图标缺失时回退为首字母占位。
+
+### 前后端接口补充 (`src-tauri/src/lib.rs`, `src/stores/useStore.ts`)
+
+- **新增 IPC 命令**: `get_all_app_icons`
+  - 基于 `app_metadata` 与 `IconCache` 返回 `app_name -> icon_base64` 映射
+  - 供设置页忽略应用列表批量渲染图标
+- **前端 API 对齐**: 在 `useStore.ts` 新增 `api.getAllAppIcons()` 调用封装。
+
+### i18n 文案扩展 (`src/i18n/zh-CN.json`, `src/i18n/en-US.json`)
+
+- 新增翻译键:
+  - `settings.retention.save_success`
+  - `settings.retention.save_failed`
+
+### 验证说明
+
+- 本次主要为 UI 与文案改动，未在日志编写阶段追加新的构建命令执行记录。
+
 ## 2026-05-14 — 自定义滚动条与语言选择器改造 (Phase 6)
 
 ### 自定义滚动条 (`index.css`, `App.tsx`)
