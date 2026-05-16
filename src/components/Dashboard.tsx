@@ -1,10 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { useStore } from "../stores/useStore";
+import { useShallow } from "zustand/react/shallow";
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
 import { AppRanking } from "./AppRanking";
 import { DatePicker } from "./DatePicker";
-import { StackedBarChart } from "./StackedBarChart";
+
+const StackedBarChart = lazy(async () => {
+  const mod = await import("./StackedBarChart");
+  return { default: mod.StackedBarChart };
+});
 
 function formatDuration(seconds: number, locale: Locale): string {
   const h = Math.floor(seconds / 3600);
@@ -27,30 +32,40 @@ function formatTime(seconds: number): string {
 }
 
 export function Dashboard() {
-  const tracker = useStore((s) => s.tracker);
-  const summary = useStore((s) => s.summary);
-  const selectedDate = useStore((s) => s.selectedDate);
-  const loading = useStore((s) => s.loading);
-  const hourlyBreakdown = useStore((s) => s.hourlyBreakdown);
-  const dailyBreakdown = useStore((s) => s.dailyBreakdown);
-  const setDate = useStore((s) => s.setDate);
-  const refresh = useStore((s) => s.refresh);
-  const loadHourlyBreakdown = useStore((s) => s.loadHourlyBreakdown);
-  const loadDailyBreakdown = useStore((s) => s.loadDailyBreakdown);
+  const {
+    tracker,
+    summary,
+    selectedDate,
+    loading,
+    hourlyBreakdown,
+    dailyBreakdown,
+    setDate,
+    refresh,
+    loadHourlyBreakdown,
+    loadDailyBreakdown,
+  } = useStore(useShallow(
+    (s) => ({
+      tracker: s.tracker,
+      summary: s.summary,
+      selectedDate: s.selectedDate,
+      loading: s.loading,
+      hourlyBreakdown: s.hourlyBreakdown,
+      dailyBreakdown: s.dailyBreakdown,
+      setDate: s.setDate,
+      refresh: s.refresh,
+      loadHourlyBreakdown: s.loadHourlyBreakdown,
+      loadDailyBreakdown: s.loadDailyBreakdown,
+    }),
+  ));
   const { t, locale } = useT();
 
   useEffect(() => {
-    if (hourlyBreakdown.length === 0) {
-      loadHourlyBreakdown(selectedDate);
-    }
-    if (dailyBreakdown.length === 0) {
-      loadDailyBreakdown();
-    }
-  }, [hourlyBreakdown.length, dailyBreakdown.length, loadHourlyBreakdown, loadDailyBreakdown, selectedDate]);
+    loadHourlyBreakdown(selectedDate);
+  }, [loadHourlyBreakdown, selectedDate]);
 
   useEffect(() => {
-    loadHourlyBreakdown(selectedDate);
-  }, [selectedDate]);
+    loadDailyBreakdown();
+  }, [loadDailyBreakdown]);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -127,10 +142,12 @@ export function Dashboard() {
               </div>
             </div>
 
-            <StackedBarChart
-              hourlyData={hourlyBreakdown}
-              dailyData={dailyBreakdown}
-            />
+            <Suspense fallback={<div className="text-center text-slate-500 py-8">{t("loading")}</div>}>
+              <StackedBarChart
+                hourlyData={hourlyBreakdown}
+                dailyData={dailyBreakdown}
+              />
+            </Suspense>
 
             <AppRanking apps={summary.apps} totalSeconds={summary.total_seconds} />
           </>

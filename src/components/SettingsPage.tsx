@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useStore, api } from "../stores/useStore";
+import { check } from "@tauri-apps/plugin-updater";
 import { useT, type Locale } from "../i18n";
 import { ToastStack, type ToastMessage, type ToastTone } from "./ToastStack";
 import {
@@ -105,13 +106,16 @@ export function SettingsPage() {
   const setTheme = useStore((s) => s.setTheme);
   const autoStartEnabled = useStore((s) => s.autoStartEnabled);
   const toggleAutoStart = useStore((s) => s.toggleAutoStart);
+  const appIcons = useStore((s) => s.appIcons);
+  const ensureAppIconsLoaded = useStore((s) => s.ensureAppIconsLoaded);
   const { t } = useT();
   const [appNames, setAppNames] = useState<string[]>([]);
   const [ignored, setIgnored] = useState<string[]>([]);
-  const [appIcons, setAppIcons] = useState<Record<string, string>>({});
   const [ignoredEnabled, setIgnoredEnabled] = useState(false);
   const [retentionMode, setRetentionMode] = useState<"permanent" | "custom">("permanent");
   const [retentionDays, setRetentionDays] = useState<number>(30);
+  const [updating, setUpdating] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<string>("");
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastTimerRef = useRef<number[]>([]);
   const toastIdRef = useRef(0);
@@ -121,13 +125,7 @@ export function SettingsPage() {
       try {
         const names = await api.getAllAppNames();
         setAppNames(names || []);
-        // load icons for apps
-        try {
-          const icons = await api.getAllAppIcons();
-          setAppIcons(icons || {});
-        } catch {
-          // ignore icon loading failures
-        }
+        await ensureAppIconsLoaded();
         const ignoredVal = await api.getSetting("ignored_apps");
         const ignoredList = parseIgnoredApps(ignoredVal);
         setIgnored(ignoredList);
@@ -151,7 +149,7 @@ export function SettingsPage() {
         // ignore
       }
     })();
-  }, []);
+  }, [ensureAppIconsLoaded]);
 
   useEffect(() => {
     return () => {
@@ -248,6 +246,34 @@ export function SettingsPage() {
     }
   };
 
+  const handleCheckUpdates = async () => {
+    setUpdating(true);
+    setUpdateStatus(t("settings.update.checking"));
+
+    try {
+      const update = await check();
+      if (!update) {
+        setUpdateStatus(t("settings.update.latest"));
+        return;
+      }
+
+      const version = (update as { version?: string }).version || "";
+      setUpdateStatus(
+        version
+          ? `${t("settings.update.available")} ${version}`
+          : t("settings.update.available"),
+      );
+
+      await update.downloadAndInstall();
+      setUpdateStatus(t("settings.update.installed"));
+      pushToast("info", t("settings.update.restart_hint"));
+    } catch {
+      setUpdateStatus(t("settings.update.failed"));
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <ToastStack messages={toasts} onClose={removeToast} />
@@ -303,6 +329,25 @@ export function SettingsPage() {
                 }`}
               />
             </button>
+          </div>
+
+          {/* Auto Update */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                {t("settings.update.title")}
+              </span>
+              <button
+                onClick={() => void handleCheckUpdates()}
+                disabled={updating}
+                className="px-3 py-1.5 rounded-md text-sm font-medium bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-60 text-white transition-colors"
+              >
+                {updating ? t("settings.update.checking") : t("settings.update.action")}
+              </button>
+            </div>
+            {updateStatus && (
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{updateStatus}</p>
+            )}
           </div>
 
           {/* Data Export */}

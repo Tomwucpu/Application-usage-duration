@@ -49,5 +49,13 @@
   "settings.retention.save": "保存",
   "settings.retention.save_success": "设置已保存。",
   "settings.retention.save_failed": "保存失败，请重试。",
-  "settings.ignored.title": "忽略应用"
+  "settings.ignored.title": "忽略应用",
+  "settings.update.title": "应用更新",
+  "settings.update.action": "检查更新",
+  "settings.update.checking": "检查中...",
+  "settings.update.latest": "当前已是最新版本。",
+  "settings.update.available": "发现新版本：",
+  "settings.update.installed": "更新已下载并准备安装。",
+  "settings.update.failed": "检查或安装更新失败。",
+  "settings.update.restart_hint": "更新已准备就绪，请重启应用完成安装。"
 }

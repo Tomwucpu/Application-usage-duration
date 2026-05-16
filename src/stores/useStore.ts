@@ -4,12 +4,67 @@ import { listen } from "@tauri-apps/api/event";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
 import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown, UsageRecord } from "../types";
 
+const shouldLogBaseline = typeof location !== "undefined" && location.hostname === "localhost";
+
+function logBaseline(message: string) {
+  if (shouldLogBaseline) {
+    console.debug(message);
+  }
+}
+
 export const api = {
-  getSetting: (key: string) => invoke<string | null>("get_setting", { key }),
-  setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
-  getAllAppNames: () => invoke<string[]>("get_all_app_names"),
-  getAllAppIcons: () => invoke<Record<string, string>>("get_all_app_icons"),
-  getAllRecords: () => invoke<UsageRecord[]>("get_all_records"),
+  getSetting: async (key: string) => {
+    const t0 = performance.now();
+    const res = await invoke<string | null>("get_setting", { key });
+    const t1 = Math.round(performance.now() - t0);
+    try {
+      const size = res ? JSON.stringify(res).length : 0;
+      logBaseline(`[baseline] get_setting ${key} ${t1}ms size=${size}`);
+    } catch {
+      logBaseline(`[baseline] get_setting ${key} ${t1}ms`);
+    }
+    return res;
+  },
+  setSetting: async (key: string, value: string) => {
+    const t0 = performance.now();
+    const res = await invoke<void>("set_setting", { key, value });
+    const t1 = Math.round(performance.now() - t0);
+    logBaseline(`[baseline] set_setting ${key} ${t1}ms`);
+    return res;
+  },
+  getAllAppNames: async () => {
+    const t0 = performance.now();
+    const res = await invoke<string[]>("get_all_app_names");
+    const t1 = Math.round(performance.now() - t0);
+    try {
+      logBaseline(`[baseline] get_all_app_names ${t1}ms size=${JSON.stringify(res).length}`);
+    } catch {
+      logBaseline(`[baseline] get_all_app_names ${t1}ms`);
+    }
+    return res;
+  },
+  getAllAppIcons: async () => {
+    const t0 = performance.now();
+    const res = await invoke<Record<string, string>>("get_all_app_icons");
+    const t1 = Math.round(performance.now() - t0);
+    try {
+      logBaseline(`[baseline] get_all_app_icons ${t1}ms size=${Object.keys(res || {}).length}`);
+    } catch {
+      logBaseline(`[baseline] get_all_app_icons ${t1}ms`);
+    }
+    return res;
+  },
+  getAllRecords: async () => {
+    const t0 = performance.now();
+    const res = await invoke<UsageRecord[]>("get_all_records");
+    const t1 = Math.round(performance.now() - t0);
+    try {
+      logBaseline(`[baseline] get_all_records ${t1}ms size=${JSON.stringify(res).length}`);
+    } catch {
+      logBaseline(`[baseline] get_all_records ${t1}ms`);
+    }
+    return res;
+  },
 };
 
 type TabId = "dashboard" | "breakdown";
@@ -23,15 +78,19 @@ interface Store {
   activeTab: TabId;
   theme: Theme;
   hourlyBreakdown: HourlyAppBreakdown[];
+  hourlyBreakdownDate: string | null;
   dailyBreakdown: DailyAppBreakdown[];
+  dailyBreakdownRange: { start: string; end: string } | null;
+  appIcons: Record<string, string>;
   autoStartEnabled: boolean;
   init: () => Promise<() => void>;
   setDate: (date: string) => Promise<void>;
   refresh: () => Promise<void>;
   setActiveTab: (tab: TabId) => void;
   setTheme: (theme: Theme) => void;
-  loadHourlyBreakdown: (date: string) => Promise<void>;
-  loadDailyBreakdown: () => Promise<void>;
+  loadHourlyBreakdown: (date: string, force?: boolean) => Promise<void>;
+  loadDailyBreakdown: (force?: boolean) => Promise<void>;
+  ensureAppIconsLoaded: (force?: boolean) => Promise<void>;
   checkAutoStart: () => Promise<void>;
   toggleAutoStart: () => Promise<void>;
 }
@@ -59,7 +118,10 @@ export const useStore = create<Store>((set, get) => ({
   activeTab: "dashboard",
   theme: (localStorage.getItem("theme") as Theme) || "dark",
   hourlyBreakdown: [],
+  hourlyBreakdownDate: null,
   dailyBreakdown: [],
+  dailyBreakdownRange: null,
+  appIcons: {},
   autoStartEnabled: false,
 
   init: async () => {
@@ -123,21 +185,47 @@ export const useStore = create<Store>((set, get) => ({
     set({ theme });
   },
 
-  loadHourlyBreakdown: async (date: string) => {
+  loadHourlyBreakdown: async (date: string, force = false) => {
+    const state = get();
+    if (!force && state.hourlyBreakdownDate === date && state.hourlyBreakdown.length > 0) {
+      return;
+    }
+
     const data = await invoke<HourlyAppBreakdown[]>(
       "get_hourly_app_breakdown",
       { date },
     );
-    set({ hourlyBreakdown: data });
+    set({ hourlyBreakdown: data, hourlyBreakdownDate: date });
   },
 
-  loadDailyBreakdown: async () => {
+  loadDailyBreakdown: async (force = false) => {
     const { start, end } = getLast7Days();
+    const state = get();
+    if (
+      !force
+      && state.dailyBreakdownRange
+      && state.dailyBreakdownRange.start === start
+      && state.dailyBreakdownRange.end === end
+      && state.dailyBreakdown.length > 0
+    ) {
+      return;
+    }
+
     const data = await invoke<DailyAppBreakdown[]>(
       "get_daily_app_breakdown",
       { startDate: start, endDate: end },
     );
-    set({ dailyBreakdown: data });
+    set({ dailyBreakdown: data, dailyBreakdownRange: { start, end } });
+  },
+
+  ensureAppIconsLoaded: async (force = false) => {
+    const state = get();
+    if (!force && Object.keys(state.appIcons).length > 0) {
+      return;
+    }
+
+    const icons = await api.getAllAppIcons();
+    set({ appIcons: icons || {} });
   },
 
   checkAutoStart: async () => {

@@ -49,5 +49,13 @@
   "settings.retention.save": "Save",
   "settings.retention.save_success": "Settings saved.",
   "settings.retention.save_failed": "Failed to save settings. Please try again.",
-  "settings.ignored.title": "Ignored Applications"
+  "settings.ignored.title": "Ignored Applications",
+  "settings.update.title": "App Updates",
+  "settings.update.action": "Check for updates",
+  "settings.update.checking": "Checking...",
+  "settings.update.latest": "You are on the latest version.",
+  "settings.update.available": "New version found:",
+  "settings.update.installed": "Update downloaded and ready to install.",
+  "settings.update.failed": "Failed to check or install update.",
+  "settings.update.restart_hint": "Update is ready. Please restart the app to finish installation."
 }

@@ -236,3 +236,53 @@
 
 ### 编译验证
 - `npx tsc --noEmit` 通过，无类型错误
+
+## 2026-05-16 — 性能优化与自动更新发布链路 (Phase 7)
+
+### 前端性能优化
+
+- **基线采集日志** (`src/stores/useStore.ts`): 为关键 IPC 调用增加临时调试日志，记录调用耗时与响应体大小，便于定位重复请求与大 payload。
+- **Dashboard 重渲染收敛** (`src/components/Dashboard.tsx`):
+  - 使用 `useShallow` 合并订阅，降低多 selector 带来的无效重渲染。
+  - 调整 breakdown 加载 effect：日数据按 `selectedDate` 请求，周数据按范围缓存，避免重复触发。
+- **Store 请求缓存** (`src/stores/useStore.ts`):
+  - 新增 `hourlyBreakdownDate`、`dailyBreakdownRange`，对 `loadHourlyBreakdown` / `loadDailyBreakdown` 增加同参数命中后跳过请求。
+- **图表透视优化** (`src/components/StackedBarChart.tsx`): 将 top app 判定由 `includes` 改为 `Set` 查找，减少透视阶段重复线性扫描。
+- **图标缓存复用** (`src/stores/useStore.ts`, `src/components/SettingsPage.tsx`):
+  - 新增全局 `appIcons` 缓存与 `ensureAppIconsLoaded`。
+  - 设置页改为读取全局缓存，避免每次进入设置页重复拉取图标。
+
+### 自动更新能力接入
+
+- **依赖与插件**:
+  - 前端增加 `@tauri-apps/plugin-updater`。
+  - Rust 增加 `tauri-plugin-updater` 并在 `lib.rs` 中注册插件。
+- **权限与配置**:
+  - `capabilities/default.json` 添加 `updater:default`。
+  - `tauri.conf.json` 启用 `bundle.createUpdaterArtifacts`，新增 `plugins.updater`（GitHub Releases endpoint + `TAURI_UPDATER_PUBKEY` 占位）。
+- **设置页入口** (`src/components/SettingsPage.tsx`): 新增“检查更新”按钮，支持状态反馈（检查中、已最新、发现新版本、下载并准备安装、失败）。
+- **i18n 文案** (`src/i18n/zh-CN.json`, `src/i18n/en-US.json`): 增加更新相关中英文键值。
+- **主包分包优化** (`src/App.tsx`, `src/components/Dashboard.tsx`):
+  - `Dashboard` / `SettingsPage` 改为 `React.lazy + Suspense` 按视图懒加载。
+  - `StackedBarChart` 改为懒加载，Recharts 依赖从主入口剥离。
+  - 构建结果中主入口 chunk 从 ~537kB 降到 ~138kB，原 >500kB 告警消失。
+- **基线日志降噪** (`src/stores/useStore.ts`): 基线日志仅在 `localhost` 开发环境输出，避免生产环境 console 噪音。
+
+### 发布与文档
+
+- 新增发布工作流: `.github/workflows/release.yml`
+  - 触发条件：`v*` tag 或手动触发
+  - 包含 Node/Rust 构建检查、Tauri 打包发布
+  - 预留 Windows 代码签名 secrets 占位（当前不启用）
+- 新增发布指南: `docs/release-guide.md`
+- 新增变更日志: `CHANGELOG.md`
+
+### 本地验证
+
+- `npm run build` 通过
+- `cargo check`（`src-tauri`）通过
+
+### 已知事项
+
+- `src-tauri/tauri.conf.json` 的 updater endpoint 已配置为 `Tomwucpu/Application-usage-duration` 仓库路径。
+- 正式发布仍需要提供 `TAURI_UPDATER_PUBKEY` 与 updater 签名相关 secrets。

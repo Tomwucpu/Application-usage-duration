@@ -8,6 +8,7 @@
     "core:event:allow-emit",
     "core:window:default",
     "shell:default",
-    "autostart:default"
+    "autostart:default",
+    "updater:default"
   ]
 }

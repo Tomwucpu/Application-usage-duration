@@ -26,6 +26,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",
@@ -35,5 +36,15 @@
       "icons/icon.ico"
     ],
     "targets": "all"
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/Tomwucpu/Application-usage-duration/releases/latest/download/latest.json"
+      ],
+      "dialog": false,
+      "pubkey": "$TAURI_UPDATER_PUBKEY"
+    }
   }
 }

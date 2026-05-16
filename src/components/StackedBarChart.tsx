@@ -61,6 +61,7 @@ function buildDailyChartData(
   const sortedApps = [...appTotals.entries()]
     .sort((a, b) => b[1] - a[1]);
   const topApps = sortedApps.slice(0, TOP_N).map(([name]) => name);
+  const topAppSet = new Set(topApps);
   const hasOthers = sortedApps.length > TOP_N;
 
   const colorMap: Record<string, string> = {};
@@ -81,7 +82,7 @@ function buildDailyChartData(
     if (hasOthers) {
       let othersSum = 0;
       for (const [app, secs] of hourMap) {
-        if (!topApps.includes(app)) othersSum += secs;
+        if (!topAppSet.has(app)) othersSum += secs;
       }
       entry[othersLabel] = othersSum;
     }
@@ -110,6 +111,7 @@ function buildWeeklyChartData(
   const sortedApps = [...appTotals.entries()]
     .sort((a, b) => b[1] - a[1]);
   const topApps = sortedApps.slice(0, TOP_N).map(([name]) => name);
+  const topAppSet = new Set(topApps);
   const hasOthers = sortedApps.length > TOP_N;
 
   const colorMap: Record<string, string> = {};
@@ -141,7 +143,7 @@ function buildWeeklyChartData(
     if (hasOthers) {
       let othersSum = 0;
       for (const [app, secs] of dayMap) {
-        if (!topApps.includes(app)) othersSum += secs;
+        if (!topAppSet.has(app)) othersSum += secs;
       }
       entry[othersLabel] = othersSum;
     }

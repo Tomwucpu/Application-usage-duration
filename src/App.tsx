@@ -1,8 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { I18nProvider, useT } from "./i18n";
 import { useStore } from "./stores/useStore";
-import { Dashboard } from "./components/Dashboard";
-import { SettingsPage } from "./components/SettingsPage";
+
+const Dashboard = lazy(async () => {
+  const mod = await import("./components/Dashboard");
+  return { default: mod.Dashboard };
+});
+
+const SettingsPage = lazy(async () => {
+  const mod = await import("./components/SettingsPage");
+  return { default: mod.SettingsPage };
+});
 
 type View = "dashboard" | "settings";
 
@@ -75,7 +83,9 @@ function AppInner() {
       </header>
       <main className="flex-1 overflow-y-auto custom-scrollbar p-6" key={currentView}>
         <div className="animate-fadeIn">
-          {currentView === "dashboard" ? <Dashboard /> : <SettingsPage />}
+          <Suspense fallback={<div className="text-center text-slate-500 py-12">{t("loading")}</div>}>
+            {currentView === "dashboard" ? <Dashboard /> : <SettingsPage />}
+          </Suspense>
         </div>
       </main>
     </div>
