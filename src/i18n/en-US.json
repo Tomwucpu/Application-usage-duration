@@ -47,6 +47,7 @@
   "settings.retention.keep": "Keep",
   "settings.retention.days": "days of data",
   "settings.retention.save": "Save",
-  "settings.ignored.title": "Ignored Applications",
-  "settings.ignored.enabled": "Enable ignored apps"
+  "settings.retention.save_success": "Settings saved.",
+  "settings.retention.save_failed": "Failed to save settings. Please try again.",
+  "settings.ignored.title": "Ignored Applications"
 }

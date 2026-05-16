@@ -94,6 +94,19 @@ fn start_tracking(
     Ok(())
 }
 
+#[tauri::command]
+fn get_all_app_icons(
+    db: tauri::State<Arc<Database>>,
+    icon_cache: tauri::State<Arc<IconCache>>,
+) -> Result<std::collections::HashMap<String, String>, String> {
+    let app_paths = db.get_all_app_metadata()?;
+    let mut map = std::collections::HashMap::new();
+    for (name, path) in app_paths {
+        map.insert(name, icon_cache.get_or_extract(&path));
+    }
+    Ok(map)
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
@@ -138,6 +151,7 @@ pub fn run() {
             get_setting,
             set_setting,
             get_all_app_names,
+            get_all_app_icons,
             get_all_records
         ])
         .run(tauri::generate_context!())

@@ -8,6 +8,7 @@ export const api = {
   getSetting: (key: string) => invoke<string | null>("get_setting", { key }),
   setSetting: (key: string, value: string) => invoke<void>("set_setting", { key, value }),
   getAllAppNames: () => invoke<string[]>("get_all_app_names"),
+  getAllAppIcons: () => invoke<Record<string, string>>("get_all_app_icons"),
   getAllRecords: () => invoke<UsageRecord[]>("get_all_records"),
 };
 

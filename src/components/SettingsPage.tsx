@@ -108,6 +108,7 @@ export function SettingsPage() {
   const { t } = useT();
   const [appNames, setAppNames] = useState<string[]>([]);
   const [ignored, setIgnored] = useState<string[]>([]);
+  const [appIcons, setAppIcons] = useState<Record<string, string>>({});
   const [ignoredEnabled, setIgnoredEnabled] = useState(false);
   const [retentionMode, setRetentionMode] = useState<"permanent" | "custom">("permanent");
   const [retentionDays, setRetentionDays] = useState<number>(30);
@@ -120,6 +121,13 @@ export function SettingsPage() {
       try {
         const names = await api.getAllAppNames();
         setAppNames(names || []);
+        // load icons for apps
+        try {
+          const icons = await api.getAllAppIcons();
+          setAppIcons(icons || {});
+        } catch {
+          // ignore icon loading failures
+        }
         const ignoredVal = await api.getSetting("ignored_apps");
         const ignoredList = parseIgnoredApps(ignoredVal);
         setIgnored(ignoredList);
@@ -173,10 +181,15 @@ export function SettingsPage() {
   };
 
   const saveRetention = async () => {
-    if (retentionMode === "permanent") {
-      await api.setSetting("retention_days", "0");
-    } else {
-      await api.setSetting("retention_days", String(retentionDays));
+    try {
+      if (retentionMode === "permanent") {
+        await api.setSetting("retention_days", "0");
+      } else {
+        await api.setSetting("retention_days", String(retentionDays));
+      }
+      pushToast("success", t("settings.retention.save_success"));
+    } catch (e) {
+      pushToast("error", t("settings.retention.save_failed"));
     }
   };
 
@@ -272,7 +285,7 @@ export function SettingsPage() {
           </div>
 
           {/* AutoStart */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between h-[36px]">
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
               {t("autostart.label")}
             </span>
@@ -307,7 +320,7 @@ export function SettingsPage() {
             <div className="flex flex-col sm:flex-row gap-2">
               <button
                 onClick={() => void handleExport("csv")}
-                className="flex-1 px-4 py-2.5 rounded-md bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium text-sm transition-colors cursor-pointer shadow-sm hover:shadow-md"
+                className="flex-1 px-4 py-2.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:bg-slate-300 dark:active:bg-slate-600 text-slate-900 dark:text-slate-100 font-medium text-sm transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
               >
                 {t("settings.export.csv")}
               </button>
@@ -396,7 +409,14 @@ export function SettingsPage() {
                     onChange={() => toggleIgnored(n)}
                     aria-label={`Ignore ${n}`}
                   />
-                  <span className="text-sm ml-1">{n}</span>
+                  {appIcons[n] ? (
+                    <img src={`data:image/png;base64,${appIcons[n]}`} alt={n} className="w-5 h-5 rounded-md ml-1 flex-shrink-0" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-md ml-1 flex-shrink-0 bg-slate-700 flex items-center justify-center text-[10px] text-slate-400 font-bold">
+                      {n.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="text-sm ml-2">{n}</span>
                 </label>
               ))}
             </div>

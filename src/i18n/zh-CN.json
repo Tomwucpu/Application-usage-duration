@@ -47,6 +47,7 @@
   "settings.retention.keep": "保留",
   "settings.retention.days": "天的数据",
   "settings.retention.save": "保存",
-  "settings.ignored.title": "忽略的应用",
-  "settings.ignored.enabled": "启用忽略应用"
+  "settings.retention.save_success": "设置已保存。",
+  "settings.retention.save_failed": "保存失败，请重试。",
+  "settings.ignored.title": "忽略应用"
 }
