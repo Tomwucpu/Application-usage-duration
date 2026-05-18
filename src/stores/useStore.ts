@@ -65,6 +65,19 @@ export const api = {
     }
     return res;
   },
+  getRecordsRange: async (startDate: string, endDate: string, offset: number, limit: number) => {
+    const res = await invoke<UsageRecord[]>("get_records_range", {
+      startDate,
+      endDate,
+      offset,
+      limit,
+    });
+    return res;
+  },
+  getRecordCount: async (startDate: string, endDate: string) => {
+    const res = await invoke<number>("get_record_count", { startDate, endDate });
+    return res;
+  },
 };
 
 type TabId = "dashboard" | "breakdown";
@@ -133,15 +146,23 @@ export const useStore = create<Store>((set, get) => ({
       document.documentElement.classList.remove("dark");
     }
 
+    let lastTrackerUpdate = 0;
+    const THROTTLE_MS = 1000;
     const unlisten = await listen<TrackerState>("tracker-state", (event) => {
+      const now = Date.now();
+      if (now - lastTrackerUpdate < THROTTLE_MS) {
+        return;
+      }
+      lastTrackerUpdate = now;
       set({ tracker: event.payload });
     });
 
     await invoke("start_tracking");
 
-    const summary = await invoke<DailySummary>("get_daily_summary", {
-      date: get().selectedDate,
-    });
+    const [summary] = await Promise.all([
+      invoke<DailySummary>("get_daily_summary", { date: get().selectedDate }),
+      get().ensureAppIconsLoaded(),
+    ]);
     set({ summary });
 
     // Check auto-start status
@@ -159,15 +180,19 @@ export const useStore = create<Store>((set, get) => ({
 
   setDate: async (date: string) => {
     set({ selectedDate: date });
-    const summary = await invoke<DailySummary>("get_daily_summary", { date });
+    const [summary] = await Promise.all([
+      invoke<DailySummary>("get_daily_summary", { date }),
+      get().ensureAppIconsLoaded(),
+    ]);
     set({ summary });
   },
 
   refresh: async () => {
     set({ loading: true });
-    const summary = await invoke<DailySummary>("get_daily_summary", {
-      date: get().selectedDate,
-    });
+    const [summary] = await Promise.all([
+      invoke<DailySummary>("get_daily_summary", { date: get().selectedDate }),
+      get().ensureAppIconsLoaded(),
+    ]);
     set({ summary, loading: false });
   },
 
@@ -191,10 +216,10 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
 
-    const data = await invoke<HourlyAppBreakdown[]>(
-      "get_hourly_app_breakdown",
-      { date },
-    );
+    const [data] = await Promise.all([
+      invoke<HourlyAppBreakdown[]>("get_hourly_app_breakdown", { date }),
+      get().ensureAppIconsLoaded(),
+    ]);
     set({ hourlyBreakdown: data, hourlyBreakdownDate: date });
   },
 
@@ -211,10 +236,10 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
 
-    const data = await invoke<DailyAppBreakdown[]>(
-      "get_daily_app_breakdown",
-      { startDate: start, endDate: end },
-    );
+    const [data] = await Promise.all([
+      invoke<DailyAppBreakdown[]>("get_daily_app_breakdown", { startDate: start, endDate: end }),
+      get().ensureAppIconsLoaded(),
+    ]);
     set({ dailyBreakdown: data, dailyBreakdownRange: { start, end } });
   },
 

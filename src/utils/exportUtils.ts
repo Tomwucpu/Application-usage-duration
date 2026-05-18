@@ -26,17 +26,21 @@ export function buildJsonExport(records: UsageRecord[]): string {
 }
 
 export function buildCsvExport(records: UsageRecord[]): string {
-  const rows = records.map((record) =>
-    EXPORT_COLUMNS.map((column) => {
-      const value = record[column];
-      if (value === null || value === undefined) {
-        return '""';
-      }
+  const rows = records.map((record) => buildCsvRow(record));
+  return [buildCsvHeader(), ...rows].join("\n");
+}
 
-      const escaped = String(value).replace(/"/g, '""');
-      return `"${escaped}"`;
-    }).join(","),
-  );
+export function buildCsvHeader(): string {
+  return EXPORT_COLUMNS.join(",");
+}
 
-  return [EXPORT_COLUMNS.join(","), ...rows].join("\n");
+export function buildCsvRow(record: UsageRecord): string {
+  return EXPORT_COLUMNS.map((column) => {
+    const value = record[column];
+    if (value === null || value === undefined) {
+      return '""';
+    }
+    const escaped = String(value).replace(/"/g, '""');
+    return `"${escaped}"`;
+  }).join(",");
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use chrono::Local;
@@ -61,7 +61,9 @@ pub struct NameCache {
 
 impl NameCache {
     pub fn new() -> Self {
-        NameCache { cache: Mutex::new(HashMap::new()) }
+        NameCache {
+            cache: Mutex::new(HashMap::new()),
+        }
     }
 
     pub fn resolve(&self, exe_path: &str) -> Option<String> {
@@ -73,23 +75,23 @@ impl NameCache {
         }
 
         let desc = get_file_description(exe_path);
-        self.cache.lock().unwrap().insert(exe_path.to_string(), desc.clone());
+        self.cache
+            .lock()
+            .unwrap()
+            .insert(exe_path.to_string(), desc.clone());
         desc
     }
 }
 
 #[cfg(target_os = "windows")]
 fn get_file_description(full_path: &str) -> Option<String> {
+    use windows::core::PCWSTR;
     use windows::Win32::Storage::FileSystem::{
         GetFileVersionInfoSizeW, GetFileVersionInfoW, VerQueryValueW,
     };
-    use windows::core::PCWSTR;
 
     unsafe {
-        let wide_path: Vec<u16> = full_path
-            .encode_utf16()
-            .chain(std::iter::once(0))
-            .collect();
+        let wide_path: Vec<u16> = full_path.encode_utf16().chain(std::iter::once(0)).collect();
         let pcwstr = PCWSTR::from_raw(wide_path.as_ptr());
 
         let mut handle: u32 = 0;
@@ -99,7 +101,14 @@ fn get_file_description(full_path: &str) -> Option<String> {
         }
 
         let mut buf: Vec<u8> = vec![0u8; size as usize];
-        if GetFileVersionInfoW(pcwstr, handle, size, buf.as_mut_ptr() as *mut std::ffi::c_void).is_err() {
+        if GetFileVersionInfoW(
+            pcwstr,
+            handle,
+            size,
+            buf.as_mut_ptr() as *mut std::ffi::c_void,
+        )
+        .is_err()
+        {
             return None;
         }
 
@@ -112,7 +121,10 @@ fn get_file_description(full_path: &str) -> Option<String> {
             trans_pcwstr,
             &mut trans_ptr,
             &mut trans_len,
-        ).as_bool() || trans_len < 4 {
+        )
+        .as_bool()
+            || trans_len < 4
+        {
             return None;
         }
 
@@ -132,15 +144,24 @@ fn get_file_description(full_path: &str) -> Option<String> {
             desc_pcwstr,
             &mut desc_ptr,
             &mut desc_len,
-        ).as_bool() || desc_len == 0 || desc_ptr.is_null() {
+        )
+        .as_bool()
+            || desc_len == 0
+            || desc_ptr.is_null()
+        {
             return None;
         }
 
-        let desc = String::from_utf16_lossy(
-            std::slice::from_raw_parts(desc_ptr as *const u16, desc_len as usize),
-        );
+        let desc = String::from_utf16_lossy(std::slice::from_raw_parts(
+            desc_ptr as *const u16,
+            desc_len as usize,
+        ));
         let desc = desc.trim_end_matches('\0').trim().to_string();
-        if desc.is_empty() { None } else { Some(desc) }
+        if desc.is_empty() {
+            None
+        } else {
+            Some(desc)
+        }
     }
 }
 
@@ -155,16 +176,15 @@ fn wide_null(s: &str) -> Vec<u16> {
 
 #[cfg(target_os = "windows")]
 mod platform {
+    use windows::core::PWSTR;
     use windows::Win32::System::Threading::{
-        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT,
-        PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION,
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_INFORMATION,
+        PROCESS_QUERY_LIMITED_INFORMATION,
     };
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW,
-        GetWindowThreadProcessId,
+        GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
     };
-    use windows::core::PWSTR;
 
     pub fn get_active_window_info() -> Option<(String, String, Option<String>)> {
         unsafe {
@@ -187,7 +207,11 @@ mod platform {
             GetWindowThreadProcessId(hwnd, Some(&mut pid));
             let (app_name, path) = get_process_info(pid);
 
-            let name = if app_name.is_empty() { title.clone() } else { app_name };
+            let name = if app_name.is_empty() {
+                title.clone()
+            } else {
+                app_name
+            };
 
             Some((name, title, path))
         }
@@ -196,14 +220,8 @@ mod platform {
     fn get_process_info(pid: u32) -> (String, Option<String>) {
         unsafe {
             // Try PROCESS_QUERY_INFORMATION first, fall back to LIMITED
-            let handle = OpenProcess(
-                PROCESS_QUERY_INFORMATION,
-                false,
-                pid,
-            )
-            .or_else(|_| {
-                OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid)
-            });
+            let handle = OpenProcess(PROCESS_QUERY_INFORMATION, false, pid)
+                .or_else(|_| OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid));
 
             let handle = match handle {
                 Ok(h) => h,
@@ -274,10 +292,7 @@ mod platform {
 
 use platform::{get_active_window_info, get_idle_seconds};
 
-fn should_ignore_app_from_settings(
-    settings: Option<&HashMap<String, String>>,
-    app: &str,
-) -> bool {
+fn should_ignore_app_from_settings(settings: Option<&HashMap<String, String>>, app: &str) -> bool {
     let Some(settings) = settings else {
         return false;
     };
@@ -332,6 +347,8 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
         let mut last_window_title: Option<String> = None;
         let mut last_start: Option<chrono::DateTime<Local>> = None;
         let mut was_running = true;
+        let mut persisted_metadata: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
 
         loop {
             std::thread::sleep(Duration::from_secs(2));
@@ -356,13 +373,17 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                             if duration > 0 && !is_ignored {
                                 let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
                                 let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
-                                let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
+                                let hour =
+                                    start.format("%H").to_string().parse::<i32>().unwrap_or(0);
                                 let _ = db.insert_usage(
                                     app,
                                     last_app_path.as_deref(),
                                     last_window_title.as_deref(),
-                                    &start_str, &end_str, duration,
-                                    &start.format("%Y-%m-%d").to_string(), hour,
+                                    &start_str,
+                                    &end_str,
+                                    duration,
+                                    &start.format("%Y-%m-%d").to_string(),
+                                    hour,
                                 );
                             }
                         }
@@ -392,8 +413,11 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                             app,
                             last_app_path.as_deref(),
                             last_window_title.as_deref(),
-                            &start_str, &end_str, duration,
-                            &start.format("%Y-%m-%d").to_string(), hour,
+                            &start_str,
+                            &end_str,
+                            duration,
+                            &start.format("%Y-%m-%d").to_string(),
+                            hour,
                         );
                     }
                 }
@@ -419,9 +443,12 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                     current_state.current_app = display_name.clone();
                     current_state.current_title = window_title.clone();
 
-                    // Persist app->path mapping for icon lookup
+                    // Persist app->path mapping for icon lookup (only once per app)
                     if let Some(ref path) = app_path {
-                        let _ = db.upsert_app_metadata(&display_name, path);
+                        if !persisted_metadata.contains(&display_name) {
+                            let _ = db.upsert_app_metadata(&display_name, path);
+                            persisted_metadata.insert(display_name.clone());
+                        }
                     }
 
                     // Extract icon for new app
@@ -443,13 +470,17 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                                 if duration > 0 && !is_ignored {
                                     let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
                                     let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
-                                    let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
+                                    let hour =
+                                        start.format("%H").to_string().parse::<i32>().unwrap_or(0);
                                     let _ = db.insert_usage(
                                         prev_app,
                                         last_app_path.as_deref(),
                                         last_window_title.as_deref(),
-                                        &start_str, &end_str, duration,
-                                        &start.format("%Y-%m-%d").to_string(), hour,
+                                        &start_str,
+                                        &end_str,
+                                        duration,
+                                        &start.format("%Y-%m-%d").to_string(),
+                                        hour,
                                     );
                                 }
                             }

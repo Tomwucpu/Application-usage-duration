@@ -9,7 +9,6 @@ pub struct AppSummary {
     pub app_name: String,
     pub total_seconds: i64,
     pub percentage: f64,
-    pub icon_base64: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,7 +30,6 @@ pub struct HourlyAppBreakdown {
     pub app_name: String,
     pub total_seconds: i64,
     pub percentage: f64,
-    pub icon_base64: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,7 +38,6 @@ pub struct DailyAppBreakdown {
     pub app_name: String,
     pub total_seconds: i64,
     pub percentage: f64,
-    pub icon_base64: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,6 +55,7 @@ pub struct UsageRecord {
 
 pub struct Database {
     pub conn: Mutex<Connection>,
+    metadata_cache: Mutex<Option<HashMap<String, String>>>,
 }
 
 impl Database {
@@ -94,6 +92,7 @@ impl Database {
 
         Ok(Database {
             conn: Mutex::new(conn),
+            metadata_cache: Mutex::new(None),
         })
     }
 
@@ -144,7 +143,6 @@ impl Database {
                     app_name: row.get(0)?,
                     total_seconds: secs,
                     percentage: 0.0,
-                    icon_base64: String::new(),
                 })
             })
             .map_err(|e| e.to_string())?
@@ -184,10 +182,7 @@ impl Database {
         })
     }
 
-    pub fn get_hourly_app_breakdown(
-        &self,
-        date: &str,
-    ) -> Result<Vec<HourlyAppBreakdown>, String> {
+    pub fn get_hourly_app_breakdown(&self, date: &str) -> Result<Vec<HourlyAppBreakdown>, String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
             .prepare(
@@ -224,7 +219,6 @@ impl Database {
                     app_name,
                     total_seconds,
                     percentage,
-                    icon_base64: String::new(),
                 }
             })
             .collect();
@@ -273,7 +267,6 @@ impl Database {
                     app_name,
                     total_seconds,
                     percentage,
-                    icon_base64: String::new(),
                 }
             })
             .collect();
@@ -281,11 +274,7 @@ impl Database {
         Ok(result)
     }
 
-    pub fn upsert_app_metadata(
-        &self,
-        app_name: &str,
-        app_path: &str,
-    ) -> Result<(), String> {
+    pub fn upsert_app_metadata(&self, app_name: &str, app_path: &str) -> Result<(), String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         conn.execute(
             "INSERT INTO app_metadata (app_name, app_path) VALUES (?1, ?2)
@@ -293,16 +282,29 @@ impl Database {
             params![app_name, app_path],
         )
         .map_err(|e| e.to_string())?;
+
+        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
+        *cache = None;
+
         Ok(())
     }
 
     pub fn get_all_app_metadata(&self) -> Result<HashMap<String, String>, String> {
+        {
+            let cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
+            if let Some(ref cached) = *cache {
+                return Ok(cached.clone());
+            }
+        }
+
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         let mut stmt = conn
             .prepare("SELECT app_name, app_path FROM app_metadata")
             .map_err(|e| e.to_string())?;
         let rows = stmt
-            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
             .map_err(|e| e.to_string())?;
         let mut map = HashMap::new();
         for row in rows {
@@ -310,6 +312,12 @@ impl Database {
                 map.insert(name, path);
             }
         }
+
+        {
+            let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
+            *cache = Some(map.clone());
+        }
+
         Ok(map)
     }
 
@@ -385,6 +393,51 @@ impl Database {
         Ok(records)
     }
 
+    pub fn get_record_count(&self, start_date: &str, end_date: &str) -> Result<i64, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.query_row(
+            "SELECT COUNT(*) FROM usage_records WHERE date BETWEEN ?1 AND ?2",
+            params![start_date, end_date],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())
+    }
+
+    pub fn get_records_range(
+        &self,
+        start_date: &str,
+        end_date: &str,
+        offset: i64,
+        limit: i64,
+    ) -> Result<Vec<UsageRecord>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, app_name, app_path, window_title, start_time, end_time, duration_seconds, date, hour
+                 FROM usage_records WHERE date BETWEEN ?1 AND ?2
+                 ORDER BY start_time DESC LIMIT ?3 OFFSET ?4",
+            )
+            .map_err(|e| e.to_string())?;
+        let records = stmt
+            .query_map(params![start_date, end_date, limit, offset], |row| {
+                Ok(UsageRecord {
+                    id: row.get(0)?,
+                    app_name: row.get(1)?,
+                    app_path: row.get(2).ok(),
+                    window_title: row.get(3).ok(),
+                    start_time: row.get(4)?,
+                    end_time: row.get(5)?,
+                    duration_seconds: row.get(6)?,
+                    date: row.get(7)?,
+                    hour: row.get(8)?,
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(records)
+    }
+
     pub fn cleanup_old_records(&self, days: u32) -> Result<usize, String> {
         if days == 0 {
             return Ok(0); // 0 means keep forever
@@ -401,5 +454,4 @@ impl Database {
             .map_err(|e| e.to_string())?;
         Ok(deleted)
     }
-
 }

@@ -5,6 +5,8 @@ pub struct IconCache {
     cache: Mutex<HashMap<String, String>>,
 }
 
+const ICON_CACHE_MAX: usize = 200;
+
 impl IconCache {
     pub fn new() -> Self {
         IconCache {
@@ -19,6 +21,11 @@ impl IconCache {
         }
 
         let icon = extract_icon_base64(app_path).unwrap_or_default();
+
+        if cache.len() >= ICON_CACHE_MAX {
+            cache.clear();
+        }
+
         cache.insert(app_path.to_string(), icon.clone());
         icon
     }
@@ -26,24 +33,20 @@ impl IconCache {
 
 #[cfg(target_os = "windows")]
 fn extract_icon_base64(exe_path: &str) -> Option<String> {
-    use windows::Win32::UI::Shell::{SHGetFileInfoW, SHGFI_ICON, SHGFI_LARGEICON, SHFILEINFOW};
+    use image::ImageEncoder;
+    use windows::core::PCWSTR;
     use windows::Win32::Graphics::Gdi::{
-        CreateCompatibleDC, DeleteDC, SelectObject,
-        DeleteObject, GetDIBits, BITMAPINFO, BITMAPINFOHEADER,
-        DIB_RGB_COLORS, BI_RGB, RGBQUAD,
-    };
-    use windows::Win32::UI::WindowsAndMessaging::{
-        GetIconInfo, DestroyIcon, DrawIconEx, ICONINFO, DI_NORMAL,
+        CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, SelectObject, BITMAPINFO,
+        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, RGBQUAD,
     };
     use windows::Win32::Storage::FileSystem::FILE_FLAGS_AND_ATTRIBUTES;
-    use windows::core::PCWSTR;
-    use image::ImageEncoder;
+    use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        DestroyIcon, DrawIconEx, GetIconInfo, DI_NORMAL, ICONINFO,
+    };
 
     unsafe {
-        let path_wide: Vec<u16> = exe_path
-            .encode_utf16()
-            .chain(std::iter::once(0))
-            .collect();
+        let path_wide: Vec<u16> = exe_path.encode_utf16().chain(std::iter::once(0)).collect();
 
         let mut sfi = SHFILEINFOW::default();
         let ret = SHGetFileInfoW(
@@ -75,8 +78,31 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
         }
 
         let mut pixels_ptr = std::ptr::null_mut();
-        let bmi2 = BITMAPINFO { bmiHeader: BITMAPINFOHEADER { biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32, biWidth: width, biHeight: -height, biPlanes: 1, biBitCount: 32, biCompression: BI_RGB.0, biSizeImage: 0, biXPelsPerMeter: 0, biYPelsPerMeter: 0, biClrUsed: 0, biClrImportant: 0 }, bmiColors: [RGBQUAD::default(); 1] };
-        let hbm = windows::Win32::Graphics::Gdi::CreateDIBSection(hdc, &bmi2 as *const _, DIB_RGB_COLORS, &mut pixels_ptr, None, 0).unwrap_or_default();
+        let bmi2 = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: width,
+                biHeight: -height,
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: BI_RGB.0,
+                biSizeImage: 0,
+                biXPelsPerMeter: 0,
+                biYPelsPerMeter: 0,
+                biClrUsed: 0,
+                biClrImportant: 0,
+            },
+            bmiColors: [RGBQUAD::default(); 1],
+        };
+        let hbm = windows::Win32::Graphics::Gdi::CreateDIBSection(
+            hdc,
+            &bmi2 as *const _,
+            DIB_RGB_COLORS,
+            &mut pixels_ptr,
+            None,
+            0,
+        )
+        .unwrap_or_default();
         if hbm.is_invalid() {
             let _ = DeleteDC(hdc);
             let _ = DestroyIcon(hicon);
@@ -145,7 +171,7 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
             pixels[i] = r;
             pixels[i + 1] = g;
             pixels[i + 2] = b;
-            
+
             if !has_alpha && (r > 0 || g > 0 || b > 0) {
                 pixels[i + 3] = 255;
             }

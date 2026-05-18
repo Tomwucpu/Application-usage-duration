@@ -4,8 +4,8 @@ import { check } from "@tauri-apps/plugin-updater";
 import { useT, type Locale } from "../i18n";
 import { ToastStack, type ToastMessage, type ToastTone } from "./ToastStack";
 import {
-  buildCsvExport,
-  buildJsonExport,
+  buildCsvHeader,
+  buildCsvRow,
   getExportFileName,
   type ExportFormat,
 } from "../utils/exportUtils";
@@ -218,8 +218,9 @@ export function SettingsPage() {
     }
 
     try {
-      const records = await api.getAllRecords();
-      const content = format === "csv" ? buildCsvExport(records) : buildJsonExport(records);
+      const startDate = "2020-01-01";
+      const endDate = new Date().toISOString().slice(0, 10);
+
       const handle = await pickerWindow.showSaveFilePicker({
         suggestedName: getExportFileName(format),
         types: [
@@ -233,7 +234,45 @@ export function SettingsPage() {
         ],
       });
       const writable = await handle.createWritable();
-      await writable.write(content);
+
+      const PAGE_SIZE = 500;
+      let offset = 0;
+      let isFirstChunk = true;
+
+      if (format === "csv") {
+        await writable.write(buildCsvHeader() + "\n");
+      } else {
+        await writable.write("[\n");
+      }
+
+      const totalCount = await api.getRecordCount(startDate, endDate);
+
+      for (;;) {
+        const records = await api.getRecordsRange(startDate, endDate, offset, PAGE_SIZE);
+        if (records.length === 0) break;
+
+        if (format === "csv") {
+          const chunk = records
+            .map((r) => buildCsvRow(r))
+            .join("\n");
+          await writable.write(chunk + (offset + records.length < totalCount ? "\n" : ""));
+        } else {
+          const prefix = isFirstChunk ? "  " : ",\n  ";
+          const chunk = records
+            .map((r) => JSON.stringify(r))
+            .join(",\n  ");
+          await writable.write(prefix + chunk);
+          isFirstChunk = false;
+        }
+
+        offset += PAGE_SIZE;
+        if (offset >= totalCount) break;
+      }
+
+      if (format === "json") {
+        await writable.write("\n]\n");
+      }
+
       await writable.close();
       pushToast("success", t("settings.export.success"));
     } catch (error) {

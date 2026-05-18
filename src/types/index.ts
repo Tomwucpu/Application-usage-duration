@@ -14,7 +14,6 @@ export interface AppSummary {
   app_name: string;
   total_seconds: number;
   percentage: number;
-  icon_base64: string;
 }
 
 export interface HourlySummary {
@@ -42,7 +41,6 @@ export interface HourlyAppBreakdown {
   app_name: string;
   total_seconds: number;
   percentage: number;
-  icon_base64: string;
 }
 
 export interface DailyAppBreakdown {
@@ -50,7 +48,6 @@ export interface DailyAppBreakdown {
   app_name: string;
   total_seconds: number;
   percentage: number;
-  icon_base64: string;
 }
 
 export interface UsageRecord {

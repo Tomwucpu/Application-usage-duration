@@ -1,5 +1,6 @@
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
+import { useStore } from "../stores/useStore";
 
 import type { AppSummary } from "../types";
 
@@ -43,6 +44,7 @@ function AppIcon({ base64, name }: { base64: string; name: string }) {
 
 export function AppRanking({ apps, totalSeconds }: Props) {
   const { t, locale } = useT();
+  const appIcons = useStore((s) => s.appIcons);
   const topApps = apps.slice(0, 15);
 
   return (
@@ -68,7 +70,7 @@ export function AppRanking({ apps, totalSeconds }: Props) {
               </span>
 
               {/* Icon */}
-              <AppIcon base64={app.icon_base64} name={displayName} />
+              <AppIcon base64={appIcons[app.app_name] || ""} name={displayName} />
 
               {/* Name + bar */}
               <div className="flex-1 min-w-0">

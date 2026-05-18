@@ -30,39 +30,39 @@ fn get_all_records(db: tauri::State<Arc<Database>>) -> Result<Vec<UsageRecord>, 
 }
 
 #[tauri::command]
+fn get_records_range(
+    start_date: String,
+    end_date: String,
+    offset: i64,
+    limit: i64,
+    db: tauri::State<Arc<Database>>,
+) -> Result<Vec<UsageRecord>, String> {
+    db.get_records_range(&start_date, &end_date, offset, limit)
+}
+
+#[tauri::command]
+fn get_record_count(
+    start_date: String,
+    end_date: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<i64, String> {
+    db.get_record_count(&start_date, &end_date)
+}
+
+#[tauri::command]
 fn get_daily_summary(
     date: String,
     db: tauri::State<Arc<Database>>,
-    icon_cache: tauri::State<Arc<IconCache>>,
 ) -> Result<DailySummary, String> {
-    let mut summary = db.get_daily_summary(&date)?;
-    let app_paths = db.get_all_app_metadata()?;
-
-    for app in &mut summary.apps {
-        if let Some(path) = app_paths.get(&app.app_name) {
-            app.icon_base64 = icon_cache.get_or_extract(path);
-        }
-    }
-
-    Ok(summary)
+    db.get_daily_summary(&date)
 }
 
 #[tauri::command]
 fn get_hourly_app_breakdown(
     date: String,
     db: tauri::State<Arc<Database>>,
-    icon_cache: tauri::State<Arc<IconCache>>,
 ) -> Result<Vec<HourlyAppBreakdown>, String> {
-    let mut breakdown = db.get_hourly_app_breakdown(&date)?;
-    let app_paths = db.get_all_app_metadata()?;
-
-    for item in &mut breakdown {
-        if let Some(path) = app_paths.get(&item.app_name) {
-            item.icon_base64 = icon_cache.get_or_extract(path);
-        }
-    }
-
-    Ok(breakdown)
+    db.get_hourly_app_breakdown(&date)
 }
 
 #[tauri::command]
@@ -70,18 +70,8 @@ fn get_daily_app_breakdown(
     start_date: String,
     end_date: String,
     db: tauri::State<Arc<Database>>,
-    icon_cache: tauri::State<Arc<IconCache>>,
 ) -> Result<Vec<DailyAppBreakdown>, String> {
-    let mut breakdown = db.get_daily_app_breakdown(&start_date, &end_date)?;
-    let app_paths = db.get_all_app_metadata()?;
-
-    for item in &mut breakdown {
-        if let Some(path) = app_paths.get(&item.app_name) {
-            item.icon_base64 = icon_cache.get_or_extract(path);
-        }
-    }
-
-    Ok(breakdown)
+    db.get_daily_app_breakdown(&start_date, &end_date)
 }
 
 #[tauri::command]
@@ -119,7 +109,7 @@ pub fn run() {
                 .expect("failed to resolve exe directory");
 
             let database = Arc::new(Database::new(app_dir).expect("failed to initialize database"));
-            
+
             // Clean up old records if setting exists
             if let Ok(Some(days_str)) = database.get_setting("retention_days") {
                 if let Ok(days) = days_str.parse::<u32>() {
@@ -153,7 +143,9 @@ pub fn run() {
             set_setting,
             get_all_app_names,
             get_all_app_icons,
-            get_all_records
+            get_all_records,
+            get_records_range,
+            get_record_count
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
