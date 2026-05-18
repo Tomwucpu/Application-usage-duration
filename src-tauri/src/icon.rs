@@ -17,16 +17,20 @@ impl IconCache {
     pub fn get_or_extract(&self, app_path: &str) -> String {
         let mut cache = self.cache.lock().unwrap();
         if let Some(icon) = cache.get(app_path) {
-            return icon.clone();
+            if !icon.is_empty() {
+                return icon.clone();
+            }
         }
 
         let icon = extract_icon_base64(app_path).unwrap_or_default();
 
-        if cache.len() >= ICON_CACHE_MAX {
-            cache.clear();
+        if !icon.is_empty() {
+            if cache.len() >= ICON_CACHE_MAX {
+                cache.clear();
+            }
+            cache.insert(app_path.to_string(), icon.clone());
         }
 
-        cache.insert(app_path.to_string(), icon.clone());
         icon
     }
 }
@@ -57,6 +61,7 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
             SHGFI_ICON | SHGFI_LARGEICON,
         );
         if ret == 0 || sfi.hIcon.is_invalid() {
+            eprintln!("[icon] SHGetFileInfoW failed for: {}", exe_path);
             return None;
         }
 
@@ -64,6 +69,7 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
 
         let mut icon_info = ICONINFO::default();
         if GetIconInfo(hicon, &mut icon_info).is_err() {
+            eprintln!("[icon] GetIconInfo failed for: {}", exe_path);
             let _ = DestroyIcon(hicon);
             return None;
         }
@@ -73,6 +79,7 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
 
         let hdc = CreateCompatibleDC(None);
         if hdc.is_invalid() {
+            eprintln!("[icon] CreateCompatibleDC failed for: {}", exe_path);
             let _ = DestroyIcon(hicon);
             return None;
         }
@@ -104,6 +111,7 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
         )
         .unwrap_or_default();
         if hbm.is_invalid() {
+            eprintln!("[icon] CreateDIBSection failed for: {}", exe_path);
             let _ = DeleteDC(hdc);
             let _ = DestroyIcon(hicon);
             return None;
@@ -188,10 +196,12 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
             )
             .ok()?;
 
-        Some(base64::Engine::encode(
+        let b64 = base64::Engine::encode(
             &base64::engine::general_purpose::STANDARD,
             &png_bytes,
-        ))
+        );
+
+        Some(b64)
     }
 }
 

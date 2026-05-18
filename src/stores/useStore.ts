@@ -250,7 +250,9 @@ export const useStore = create<Store>((set, get) => ({
     }
 
     const icons = await api.getAllAppIcons();
-    set({ appIcons: icons || {} });
+    if (icons && Object.keys(icons).length > 0) {
+      set({ appIcons: { ...state.appIcons, ...icons } });
+    }
   },
 
   checkAutoStart: async () => {

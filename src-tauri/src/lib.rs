@@ -92,7 +92,10 @@ fn get_all_app_icons(
     let app_paths = db.get_all_app_metadata()?;
     let mut map = std::collections::HashMap::new();
     for (name, path) in app_paths {
-        map.insert(name, icon_cache.get_or_extract(&path));
+        let icon = icon_cache.get_or_extract(&path);
+        if !icon.is_empty() {
+            map.insert(name, icon);
+        }
     }
     Ok(map)
 }
