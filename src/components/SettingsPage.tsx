@@ -478,7 +478,7 @@ export function SettingsPage() {
             <div
               className={`grid grid-cols-2 gap-2 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-in-out ${
                 ignoredEnabled
-                  ? "mt-3 max-h-[28rem] opacity-100 translate-y-0 pointer-events-auto"
+                  ? "mt-3 opacity-100 translate-y-0 pointer-events-auto"
                   : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
               }`}
             >

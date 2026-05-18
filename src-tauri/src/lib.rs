@@ -123,11 +123,18 @@ pub fn run() {
             let icon_cache = Arc::new(IconCache::new());
             let tracker = Arc::new(Tracker::new(database.clone(), icon_cache.clone()));
 
-            app.manage(database);
+            app.manage(database.clone());
             app.manage(icon_cache);
             app.manage(tracker);
 
             tray::create_tray(app.handle())?;
+
+            // Apply saved locale to tray menu
+            if let Ok(Some(locale)) = database.get_setting("locale") {
+                if locale == "zh-CN" || locale == "en-US" {
+                    let _ = tray::update_tray_menu(app.handle().clone(), locale);
+                }
+            }
 
             Ok(())
         })
@@ -148,7 +155,8 @@ pub fn run() {
             get_all_app_icons,
             get_all_records,
             get_records_range,
-            get_record_count
+            get_record_count,
+            tray::update_tray_menu
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

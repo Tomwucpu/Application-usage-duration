@@ -1,10 +1,30 @@
 use tauri::{
-    menu::{MenuBuilder, MenuItemBuilder},
+    menu::{Menu, MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager,
 };
 use std::sync::Arc;
 use crate::tracker::Tracker;
+
+fn build_menu(app: &AppHandle, locale: &str) -> tauri::Result<Menu<tauri::Wry>> {
+    let (pause_label, show_label, quit_label) = match locale {
+        "zh-CN" => ("暂停/继续追踪", "显示/隐藏窗口", "退出"),
+        _ => ("Pause/Resume Tracking", "Show/Hide Window", "Exit"),
+    };
+
+    let pause_item = MenuItemBuilder::with_id("pause", pause_label).build(app)?;
+    let show_item = MenuItemBuilder::with_id("show", show_label).build(app)?;
+    let quit_item = MenuItemBuilder::with_id("quit", quit_label).build(app)?;
+
+    let menu = MenuBuilder::new(app)
+        .item(&pause_item)
+        .item(&show_item)
+        .separator()
+        .item(&quit_item)
+        .build()?;
+
+    Ok(menu)
+}
 
 fn toggle_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
@@ -24,19 +44,7 @@ fn toggle_window(app: &AppHandle) {
 }
 
 pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
-    let pause_item = MenuItemBuilder::with_id("pause", "Pause/Resume Tracking")
-        .build(app)?;
-    let show_item = MenuItemBuilder::with_id("show", "Show/Hide Window")
-        .build(app)?;
-    let quit_item = MenuItemBuilder::with_id("quit", "Exit")
-        .build(app)?;
-
-    let menu = MenuBuilder::new(app)
-        .item(&pause_item)
-        .item(&show_item)
-        .separator()
-        .item(&quit_item)
-        .build()?;
+    let menu = build_menu(app, "en-US")?;
 
     let _tray = TrayIconBuilder::with_id("main-tray")
         .icon(app.default_window_icon().cloned().unwrap())
@@ -75,5 +83,14 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         })
         .build(app)?;
 
+    Ok(())
+}
+
+#[tauri::command]
+pub fn update_tray_menu(app: AppHandle, locale: String) -> Result<(), String> {
+    let menu = build_menu(&app, &locale).map_err(|e| e.to_string())?;
+    if let Some(tray) = app.tray_by_id("main-tray") {
+        tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    }
     Ok(())
 }

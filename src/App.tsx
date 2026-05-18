@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { I18nProvider, useT } from "./i18n";
-import { useStore } from "./stores/useStore";
+import { I18nProvider, useT, type Locale } from "./i18n";
+import { useStore, api } from "./stores/useStore";
+import { invoke } from "@tauri-apps/api/core";
 
 const Dashboard = lazy(async () => {
   const mod = await import("./components/Dashboard");
@@ -42,7 +43,7 @@ function NavButton({
 
 function AppInner() {
   const init = useStore((s) => s.init);
-  const { t } = useT();
+  const { t, locale } = useT();
   const [currentView, setCurrentView] = useState<View>("dashboard");
 
   useEffect(() => {
@@ -51,6 +52,11 @@ function AppInner() {
       p.then((cleanup) => cleanup());
     };
   }, [init]);
+
+  useEffect(() => {
+    api.setSetting("locale", locale);
+    invoke("update_tray_menu", { locale });
+  }, [locale]);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">

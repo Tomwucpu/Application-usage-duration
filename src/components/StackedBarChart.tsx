@@ -211,6 +211,7 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
   const { t, locale } = useT();
   const theme = useStore((s) => s.theme);
+  const selectedDate = useStore((s) => s.selectedDate);
   const othersLabel = t("chart.others");
   const isDark = theme === "dark";
 
@@ -261,7 +262,7 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
       <div className="w-full h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            key={viewMode}
+            key={`${viewMode}-${selectedDate}`}
             data={chartData}
             margin={{ top: 10, right: 4, bottom: 4, left: 0 }}
           >
