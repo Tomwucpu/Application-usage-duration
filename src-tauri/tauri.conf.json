@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicoverbruggen/tauri-docs/refs/heads/dev/src/content/docs/_schema/config.schema.json",
-  "productName": "屏幕使用时长",
+  "productName": "screen-time-tracker",
   "version": "0.1.0",
   "identifier": "com.screen-time-tracker.app",
   "build": {
@@ -13,7 +13,7 @@
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "屏幕使用时长",
+        "title": "Screen Time Tracker",
         "width": 900,
         "height": 700,
         "resizable": true,
