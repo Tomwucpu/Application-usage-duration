@@ -96,6 +96,7 @@ function buildWeeklyChartData(
   dailyData: DailyAppBreakdown[],
   othersLabel: string,
   locale: string,
+  referenceDate: string,
 ): ChartData {
   const dayApps: Map<string, Map<string, number>> = new Map();
   const appTotals: Map<string, number> = new Map();
@@ -120,11 +121,16 @@ function buildWeeklyChartData(
   });
   if (hasOthers) colorMap[othersLabel] = OTHER_COLOR;
 
-  // Generate last 7 days
+  // Generate 7 days of the week containing referenceDate (Monday-Sunday)
   const days: { date: string; label: string }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
+  const ref = new Date(referenceDate + "T00:00:00");
+  const refDay = ref.getDay();
+  const offsetToMonday = refDay === 0 ? -6 : 1 - refDay;
+  const monday = new Date(ref);
+  monday.setDate(ref.getDate() + offsetToMonday);
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
     const iso = d.toISOString().slice(0, 10);
     const label = d.toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
       weekday: "short",
@@ -219,8 +225,8 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
     if (viewMode === "daily") {
       return buildDailyChartData(hourlyData, othersLabel);
     }
-    return buildWeeklyChartData(dailyData, othersLabel, locale);
-  }, [viewMode, hourlyData, dailyData, othersLabel, locale]);
+    return buildWeeklyChartData(dailyData, othersLabel, locale, selectedDate);
+  }, [viewMode, hourlyData, dailyData, othersLabel, locale, selectedDate]);
 
   const hasData = chartData.some((d) => {
     return appNames.some((name) => (d[name] as number) > 0);
@@ -228,8 +234,32 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
 
   if (!hasData) {
     return (
-      <div className="text-center text-slate-500 dark:text-slate-400 py-12">
-        {t("breakdown.noData")}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
+        {/* View title + switcher */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {t("breakdown.title")}
+          </h2>
+          <div className="inline-flex bg-slate-100 dark:bg-slate-950/50 rounded-lg p-1 border border-slate-200 dark:border-slate-800/60">
+            {(["daily", "weekly"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                  viewMode === mode
+                    ? "bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/50"
+                }`}
+              >
+                {t(`breakdown.${mode}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="text-center text-slate-500 dark:text-slate-400 py-12">
+          {t("breakdown.noData")}
+        </div>
       </div>
     );
   }

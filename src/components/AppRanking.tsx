@@ -7,6 +7,7 @@ import type { AppSummary } from "../types";
 interface Props {
   apps: AppSummary[];
   totalSeconds: number;
+  loading: boolean;
 }
 
 const COLORS = [
@@ -42,7 +43,7 @@ function AppIcon({ base64, name }: { base64: string; name: string }) {
   );
 }
 
-export function AppRanking({ apps, totalSeconds }: Props) {
+export function AppRanking({ apps, totalSeconds, loading }: Props) {
   const { t, locale } = useT();
   const appIcons = useStore((s) => s.appIcons);
   const topApps = apps.slice(0, 15);
@@ -52,7 +53,9 @@ export function AppRanking({ apps, totalSeconds }: Props) {
       <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">{t("chart.ranking")}</h2>
 
       {topApps.length === 0 && (
-        <div className="text-center text-slate-500 dark:text-slate-400 py-8">{t("loading")}</div>
+        <div className="text-center text-slate-500 dark:text-slate-400 py-8">
+          {loading ? t("loading") : t("breakdown.noData")}
+        </div>
       )}
 
       <div className="space-y-2">

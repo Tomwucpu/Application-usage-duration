@@ -64,8 +64,8 @@ export function Dashboard() {
   }, [loadHourlyBreakdown, selectedDate]);
 
   useEffect(() => {
-    loadDailyBreakdown();
-  }, [loadDailyBreakdown]);
+    loadDailyBreakdown(selectedDate);
+  }, [loadDailyBreakdown, selectedDate]);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -149,7 +149,7 @@ export function Dashboard() {
               />
             </Suspense>
 
-            <AppRanking apps={summary.apps} totalSeconds={summary.total_seconds} />
+            <AppRanking apps={summary.apps} totalSeconds={summary.total_seconds} loading={loading} />
           </>
         )}
 

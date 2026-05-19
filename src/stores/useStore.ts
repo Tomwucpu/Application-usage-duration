@@ -102,18 +102,23 @@ interface Store {
   setActiveTab: (tab: TabId) => void;
   setTheme: (theme: Theme) => void;
   loadHourlyBreakdown: (date: string, force?: boolean) => Promise<void>;
-  loadDailyBreakdown: (force?: boolean) => Promise<void>;
+  loadDailyBreakdown: (date: string, force?: boolean) => Promise<void>;
   ensureAppIconsLoaded: (force?: boolean) => Promise<void>;
   checkAutoStart: () => Promise<void>;
   toggleAutoStart: () => Promise<void>;
 }
 
-function getLast7Days(): { start: string; end: string } {
-  const end = new Date();
-  const start = new Date();
-  start.setDate(start.getDate() - 6);
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  return { start: fmt(start), end: fmt(end) };
+function getWeekRange(dateStr: string): { start: string; end: string } {
+  const d = new Date(dateStr + "T00:00:00");
+  const dayOfWeek = d.getDay();
+  // Monday = 1, Sunday = 0 or 7 → offset to Monday
+  const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + offsetToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fmt = (dt: Date) => dt.toISOString().slice(0, 10);
+  return { start: fmt(monday), end: fmt(sunday) };
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -223,8 +228,8 @@ export const useStore = create<Store>((set, get) => ({
     set({ hourlyBreakdown: data, hourlyBreakdownDate: date });
   },
 
-  loadDailyBreakdown: async (force = false) => {
-    const { start, end } = getLast7Days();
+  loadDailyBreakdown: async (date: string, force = false) => {
+    const { start, end } = getWeekRange(date);
     const state = get();
     if (
       !force
