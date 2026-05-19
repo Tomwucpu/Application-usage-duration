@@ -485,7 +485,7 @@ export function SettingsPage() {
               {appNames.map((n) => (
                 <label
                   key={n}
-                  className="flex items-center gap-2 rounded px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-700"
+                  className="flex items-center gap-4 rounded px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-700"
                 >
                   <input
                     type="checkbox"
@@ -494,13 +494,13 @@ export function SettingsPage() {
                     aria-label={`Ignore ${n}`}
                   />
                   {appIcons[n] ? (
-                    <img src={`data:image/png;base64,${appIcons[n]}`} alt={n} className="w-5 h-5 rounded-md ml-1 flex-shrink-0" />
+                    <img src={`data:image/png;base64,${appIcons[n]}`} alt={n} className="w-5 h-5 rounded-md mt-0.5 flex-shrink-0" />
                   ) : (
                     <div className="w-5 h-5 rounded-md ml-1 flex-shrink-0 bg-slate-700 flex items-center justify-center text-[10px] text-slate-400 font-bold">
                       {n.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <span className="text-sm ml-2">{n}</span>
+                  <span className="text-sm">{n}</span>
                 </label>
               ))}
             </div>

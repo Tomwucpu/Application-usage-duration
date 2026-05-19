@@ -60,7 +60,7 @@ function AppInner() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      <header className="border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight">{t("app.title")}</h1>
         <div className="flex items-center gap-1">
           <NavButton

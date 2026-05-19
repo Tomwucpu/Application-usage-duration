@@ -128,13 +128,13 @@ export function Dashboard() {
         {summary && (
           <>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm dark:shadow-none">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
                 <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.total")}</div>
                 <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
                   {formatDuration(summary.total_seconds, locale)}
                 </div>
               </div>
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm dark:shadow-none">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
                 <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.apps")}</div>
                 <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
                   {summary.apps.length}

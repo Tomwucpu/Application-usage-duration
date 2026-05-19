@@ -32,7 +32,7 @@ function AppIcon({ base64, name }: { base64: string; name: string }) {
       <img
         src={`data:image/png;base64,${base64}`}
         alt={name}
-        className="w-6 h-6 rounded-md flex-shrink-0"
+        className="w-6 h-6 rounded-md flex-shrink-0 mt-1"
       />
     );
   }
@@ -58,7 +58,7 @@ export function AppRanking({ apps, totalSeconds, loading }: Props) {
         </div>
       )}
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {topApps.map((app, i) => {
           const pct = totalSeconds > 0
             ? Math.round((app.total_seconds / totalSeconds) * 100)
@@ -66,9 +66,9 @@ export function AppRanking({ apps, totalSeconds, loading }: Props) {
           const displayName = app.app_name;
 
           return (
-            <div key={app.app_name} className="flex items-center gap-3 group">
+            <div key={app.app_name} className="flex items-center gap-4 group">
               {/* Rank */}
-              <span className="w-6 text-right text-xs text-slate-500 tabular-nums">
+              <span className="w-6 text-right text-xs text-slate-500 tabular-nums mt-1">
                 {i + 1}
               </span>
 
