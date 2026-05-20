@@ -219,7 +219,8 @@ export function SettingsPage() {
 
     try {
       const startDate = "2020-01-01";
-      const endDate = new Date().toISOString().slice(0, 10);
+      const now = new Date();
+      const endDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
       const handle = await pickerWindow.showSaveFilePicker({
         suggestedName: getExportFileName(format),

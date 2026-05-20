@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { I18nProvider, useT, type Locale } from "./i18n";
+import { I18nProvider, useT } from "./i18n";
 import { useStore, api } from "./stores/useStore";
 import { invoke } from "@tauri-apps/api/core";
 

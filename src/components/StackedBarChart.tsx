@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -11,6 +11,7 @@ import {
 import type { HourlyAppBreakdown, DailyAppBreakdown } from "../types";
 import { useT } from "../i18n";
 import { useStore } from "../stores/useStore";
+import { DateRangePicker } from "./DateRangePicker";
 
 const COLORS = [
   "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
@@ -20,12 +21,17 @@ const COLORS = [
 const OTHER_COLOR = "#475569";
 const TOP_N = 10;
 
+function fmtLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 interface Props {
   hourlyData: HourlyAppBreakdown[];
   dailyData: DailyAppBreakdown[];
 }
-
-type ViewMode = "daily" | "weekly";
 
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -92,11 +98,10 @@ function buildDailyChartData(
   return { chartData, appNames: hasOthers ? [...topApps, othersLabel] : topApps, colorMap };
 }
 
-function buildWeeklyChartData(
+function buildRangeChartData(
   dailyData: DailyAppBreakdown[],
   othersLabel: string,
-  locale: string,
-  referenceDate: string,
+  dates: { date: string; label: string }[],
 ): ChartData {
   const dayApps: Map<string, Map<string, number>> = new Map();
   const appTotals: Map<string, number> = new Map();
@@ -121,26 +126,7 @@ function buildWeeklyChartData(
   });
   if (hasOthers) colorMap[othersLabel] = OTHER_COLOR;
 
-  // Generate 7 days of the week containing referenceDate (Monday-Sunday)
-  const days: { date: string; label: string }[] = [];
-  const ref = new Date(referenceDate + "T00:00:00");
-  const refDay = ref.getDay();
-  const offsetToMonday = refDay === 0 ? -6 : 1 - refDay;
-  const monday = new Date(ref);
-  monday.setDate(ref.getDate() + offsetToMonday);
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    const iso = d.toISOString().slice(0, 10);
-    const label = d.toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
-      weekday: "short",
-      month: "numeric",
-      day: "numeric",
-    });
-    days.push({ date: iso, label });
-  }
-
-  const chartData = days.map(({ date, label }) => {
+  const chartData = dates.map(({ date, label }) => {
     const entry: Record<string, string | number> = { dateLabel: label };
     const dayMap = dayApps.get(date) || new Map();
     for (const app of topApps) {
@@ -164,11 +150,13 @@ function CustomTooltip({
   payload,
   label,
   colorMap,
+  hoveredApp,
 }: {
   active?: boolean;
   payload?: { name: string; value: number }[];
   label?: string;
   colorMap: Record<string, string>;
+  hoveredApp: string | null;
 }) {
   if (!active || !payload || !label) return null;
 
@@ -186,19 +174,27 @@ function CustomTooltip({
       <div className="space-y-0.5">
         {sorted.map((p) => {
           const pct = total > 0 ? ((p.value / total) * 100).toFixed(1) : "0";
+          const isHovered = hoveredApp === p.name;
           return (
-            <div key={p.name} className="flex items-center gap-1.5 text-xs">
+            <div
+              key={p.name}
+              className={`flex items-center gap-1.5 text-xs transition-opacity duration-150 ${
+                hoveredApp && !isHovered ? "opacity-40" : ""
+              }`}
+            >
               <span
-                className="w-2 h-2 rounded-sm shrink-0"
+                className={`rounded-sm shrink-0 transition-all duration-150 ${
+                  isHovered ? "w-2.5 h-2.5 ring-2 ring-offset-1 ring-slate-400 dark:ring-slate-500" : "w-2 h-2"
+                }`}
                 style={{ backgroundColor: colorMap[p.name] || OTHER_COLOR }}
               />
-              <span className="text-slate-700 dark:text-slate-300 truncate max-w-[100px]">
+              <span className={`text-slate-700 dark:text-slate-300 truncate max-w-[100px] ${isHovered ? "font-semibold" : ""}`}>
                 {p.name}
               </span>
-              <span className="text-slate-500 dark:text-slate-400 ml-auto tabular-nums">
+              <span className={`ml-auto tabular-nums ${isHovered ? "font-semibold text-slate-700 dark:text-slate-200" : "text-slate-500 dark:text-slate-400"}`}>
                 {formatDuration(p.value)}
               </span>
-              <span className="text-slate-500 dark:text-slate-400 w-10 text-right tabular-nums">
+              <span className={`w-10 text-right tabular-nums ${isHovered ? "font-semibold text-slate-700 dark:text-slate-200" : "text-slate-500 dark:text-slate-400"}`}>
                 {pct}%
               </span>
             </div>
@@ -214,34 +210,124 @@ function CustomTooltip({
 }
 
 export function StackedBarChart({ hourlyData, dailyData }: Props) {
-  const [viewMode, setViewMode] = useState<ViewMode>("daily");
   const { t, locale } = useT();
   const theme = useStore((s) => s.theme);
   const selectedDate = useStore((s) => s.selectedDate);
+  const viewMode = useStore((s) => s.viewMode);
+  const setViewMode = useStore((s) => s.setViewMode);
+  const customStartDate = useStore((s) => s.customStartDate);
+  const customEndDate = useStore((s) => s.customEndDate);
+  const setCustomRange = useStore((s) => s.setCustomRange);
   const othersLabel = t("chart.others");
   const isDark = theme === "dark";
+  const [hoveredApp, setHoveredApp] = useState<string | null>(null);
+
+  const dateList = useMemo(() => {
+    if (viewMode === "daily") return [];
+    const dates: { date: string; label: string }[] = [];
+    let start: Date;
+    let end: Date;
+    if (viewMode === "weekly") {
+      const ref = new Date(selectedDate + "T00:00:00");
+      const refDay = ref.getDay();
+      const offsetToMonday = refDay === 0 ? -6 : 1 - refDay;
+      start = new Date(ref);
+      start.setDate(ref.getDate() + offsetToMonday);
+      end = new Date(start);
+      end.setDate(start.getDate() + 6);
+    } else if (viewMode === "monthly") {
+      const ref = new Date(selectedDate + "T00:00:00");
+      start = new Date(ref.getFullYear(), ref.getMonth(), 1);
+      end = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
+    } else {
+      // custom - use the dates from dailyData directly
+      return [];
+    }
+    const showWeekday = viewMode === "weekly";
+    const d = new Date(start);
+    while (d <= end) {
+      const iso = fmtLocalDate(d);
+      const label = d.toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
+        weekday: showWeekday ? "short" : undefined,
+        month: "numeric",
+        day: "numeric",
+      });
+      dates.push({ date: iso, label });
+      d.setDate(d.getDate() + 1);
+    }
+    return dates;
+  }, [viewMode, selectedDate, locale]);
+
+  const customDates = useMemo(() => {
+    if (viewMode !== "custom" || !customStartDate || !customEndDate) return [];
+    const dates: { date: string; label: string }[] = [];
+    const start = new Date(customStartDate + "T00:00:00");
+    const end = new Date(customEndDate + "T00:00:00");
+    const d = new Date(start);
+    while (d <= end) {
+      const iso = fmtLocalDate(d);
+      const label = d.toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
+        month: "short",
+        day: "numeric",
+      });
+      dates.push({ date: iso, label });
+      d.setDate(d.getDate() + 1);
+    }
+    return dates;
+  }, [viewMode, customStartDate, customEndDate, locale]);
+
+  const rangeTitle = useMemo(() => {
+    if (viewMode !== "custom" || !customStartDate || !customEndDate) return "";
+    const fmt = (d: Date) =>
+      d.toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    const start = new Date(customStartDate + "T00:00:00");
+    const end = new Date(customEndDate + "T00:00:00");
+    const dash = "\u2009\u2013\u2009";
+    return `${fmt(start)}${dash}${fmt(end)}`;
+  }, [viewMode, customStartDate, customEndDate, locale]);
 
   const { chartData, appNames, colorMap } = useMemo(() => {
     if (viewMode === "daily") {
       return buildDailyChartData(hourlyData, othersLabel);
     }
-    return buildWeeklyChartData(dailyData, othersLabel, locale, selectedDate);
-  }, [viewMode, hourlyData, dailyData, othersLabel, locale, selectedDate]);
+    const dates = viewMode === "custom" ? customDates : dateList;
+    if (dates.length === 0) {
+      return { chartData: [], appNames: [], colorMap: {} };
+    }
+    return buildRangeChartData(dailyData, othersLabel, dates);
+  }, [viewMode, hourlyData, dailyData, othersLabel, locale, dateList, customDates]);
 
-  const hasData = chartData.some((d) => {
-    return appNames.some((name) => (d[name] as number) > 0);
-  });
+  const dayCount = viewMode === "daily" ? 24 : (viewMode === "custom" ? customDates.length : dateList.length);
+  const xInterval = (() => {
+    if (viewMode === "daily") return 3;
+    if (viewMode === "weekly") return 0;
+    if (dayCount <= 7) return 0;
+    if (dayCount <= 14) return 1;
+    if (dayCount <= 31) return Math.max(1, Math.floor(dayCount / 8));
+    return Math.max(2, Math.floor(dayCount / 10));
+  })();
 
-  if (!hasData) {
+  const hasEntries = chartData.length > 0;
+
+  if (!hasEntries) {
     return (
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
         {/* View title + switcher */}
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            {t("breakdown.title")}
-          </h2>
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+              {t("breakdown.title")}
+            </h2>
+            {rangeTitle && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{rangeTitle}</p>
+            )}
+          </div>
           <div className="inline-flex bg-slate-100 dark:bg-slate-950/50 rounded-lg p-1 border border-slate-200 dark:border-slate-800/60">
-            {(["daily", "weekly"] as const).map((mode) => (
+            {(["daily", "weekly", "monthly", "custom"] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -257,6 +343,15 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
           </div>
         </div>
 
+        {viewMode === "custom" && (
+          <DateRangePicker
+            startDate={customStartDate}
+            endDate={customEndDate}
+            onChange={setCustomRange}
+            locale={locale}
+          />
+        )}
+
         <div className="text-center text-slate-500 dark:text-slate-400 py-12">
           {t("breakdown.noData")}
         </div>
@@ -268,11 +363,16 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
       {/* View title + switcher */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          {t("breakdown.title")}
-        </h2>
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {t("breakdown.title")}
+          </h2>
+          {rangeTitle && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{rangeTitle}</p>
+          )}
+        </div>
         <div className="inline-flex bg-slate-100 dark:bg-slate-950/50 rounded-lg p-1 border border-slate-200 dark:border-slate-800/60">
-          {(["daily", "weekly"] as const).map((mode) => (
+          {(["daily", "weekly", "monthly", "custom"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
@@ -288,11 +388,20 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
         </div>
       </div>
 
+      {viewMode === "custom" && (
+        <DateRangePicker
+          startDate={customStartDate}
+          endDate={customEndDate}
+          onChange={setCustomRange}
+          locale={locale}
+        />
+      )}
+
       {/* Chart */}
       <div className="w-full h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            key={`${viewMode}-${selectedDate}`}
+            key={`${viewMode}-${selectedDate}-${customStartDate}-${customEndDate}`}
             data={chartData}
             margin={{ top: 10, right: 4, bottom: 4, left: 0 }}
           >
@@ -302,7 +411,7 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
               tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
-              interval={viewMode === "daily" ? 3 : 0}
+              interval={xInterval}
             />
             <YAxis
               tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 11 }}
@@ -313,23 +422,22 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
             />
             <Tooltip
               content={
-                <CustomTooltip colorMap={colorMap} />
+                <CustomTooltip colorMap={colorMap} hoveredApp={hoveredApp} />
               }
               cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.08)" : "rgba(100, 116, 139, 0.08)" }}
             />
-            {appNames.map((appName, i) => (
+            {appNames.map((appName) => (
               <Bar
                 key={appName}
                 dataKey={appName}
                 stackId="stack"
                 fill={colorMap[appName]}
-                radius={
-                  i === appNames.length - 1 ? [3, 3, 0, 0] : [0, 0, 0, 0]
-                }
-                maxBarSize={viewMode === "daily" ? 16 : 40}
+                radius={[0, 0, 0, 0]}
                 isAnimationActive={true}
                 animationDuration={500}
                 animationEasing="ease-out"
+                onMouseEnter={() => setHoveredApp(appName)}
+                onMouseLeave={() => setHoveredApp(null)}
               />
             ))}
           </BarChart>

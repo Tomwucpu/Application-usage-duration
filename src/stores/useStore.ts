@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
-import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown, UsageRecord } from "../types";
+import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown, UsageRecord, ViewMode } from "../types";
 
 const shouldLogBaseline = typeof location !== "undefined" && location.hostname === "localhost";
 
@@ -94,6 +94,11 @@ interface Store {
   hourlyBreakdownDate: string | null;
   dailyBreakdown: DailyAppBreakdown[];
   dailyBreakdownRange: { start: string; end: string } | null;
+  rangeBreakdown: DailyAppBreakdown[];
+  rangeBreakdownRange: { start: string; end: string } | null;
+  viewMode: ViewMode;
+  customStartDate: string | null;
+  customEndDate: string | null;
   appIcons: Record<string, string>;
   autoStartEnabled: boolean;
   init: () => Promise<() => void>;
@@ -101,8 +106,11 @@ interface Store {
   refresh: () => Promise<void>;
   setActiveTab: (tab: TabId) => void;
   setTheme: (theme: Theme) => void;
+  setViewMode: (mode: ViewMode) => void;
+  setCustomRange: (start: string, end: string) => void;
   loadHourlyBreakdown: (date: string, force?: boolean) => Promise<void>;
   loadDailyBreakdown: (date: string, force?: boolean) => Promise<void>;
+  loadRangeBreakdown: (start: string, end: string, force?: boolean) => Promise<void>;
   ensureAppIconsLoaded: (force?: boolean) => Promise<void>;
   checkAutoStart: () => Promise<void>;
   toggleAutoStart: () => Promise<void>;
@@ -139,6 +147,11 @@ export const useStore = create<Store>((set, get) => ({
   hourlyBreakdownDate: null,
   dailyBreakdown: [],
   dailyBreakdownRange: null,
+  rangeBreakdown: [],
+  rangeBreakdownRange: null,
+  viewMode: "daily",
+  customStartDate: null,
+  customEndDate: null,
   appIcons: {},
   autoStartEnabled: false,
 
@@ -228,15 +241,34 @@ export const useStore = create<Store>((set, get) => ({
     set({ hourlyBreakdown: data, hourlyBreakdownDate: date });
   },
 
-  loadDailyBreakdown: async (date: string, force = false) => {
-    const { start, end } = getWeekRange(date);
+  setViewMode: (mode: ViewMode) => {
+    const state = get();
+    set({ viewMode: mode });
+    // Default custom range to last 7 days if switching to custom with no range set
+    if (mode === "custom" && (!state.customStartDate || !state.customEndDate)) {
+      const today = new Date().toISOString().slice(0, 10);
+      const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+      set({ customStartDate: weekAgo, customEndDate: today });
+    }
+  },
+
+  setCustomRange: (start: string, end: string) => {
+    // Ensure start <= end
+    if (start > end) {
+      set({ customStartDate: end, customEndDate: start });
+    } else {
+      set({ customStartDate: start, customEndDate: end });
+    }
+  },
+
+  loadRangeBreakdown: async (start: string, end: string, force = false) => {
     const state = get();
     if (
       !force
-      && state.dailyBreakdownRange
-      && state.dailyBreakdownRange.start === start
-      && state.dailyBreakdownRange.end === end
-      && state.dailyBreakdown.length > 0
+      && state.rangeBreakdownRange
+      && state.rangeBreakdownRange.start === start
+      && state.rangeBreakdownRange.end === end
+      && state.rangeBreakdown.length > 0
     ) {
       return;
     }
@@ -245,7 +277,17 @@ export const useStore = create<Store>((set, get) => ({
       invoke<DailyAppBreakdown[]>("get_daily_app_breakdown", { startDate: start, endDate: end }),
       get().ensureAppIconsLoaded(),
     ]);
-    set({ dailyBreakdown: data, dailyBreakdownRange: { start, end } });
+    set({
+      rangeBreakdown: data,
+      rangeBreakdownRange: { start, end },
+      dailyBreakdown: data,
+      dailyBreakdownRange: { start, end },
+    });
+  },
+
+  loadDailyBreakdown: async (date: string, force = false) => {
+    const { start, end } = getWeekRange(date);
+    await get().loadRangeBreakdown(start, end, force);
   },
 
   ensureAppIconsLoaded: async (force = false) => {

@@ -50,6 +50,8 @@ export interface DailyAppBreakdown {
   percentage: number;
 }
 
+export type ViewMode = "daily" | "weekly" | "monthly" | "custom";
+
 export interface UsageRecord {
   id: number;
   app_name: string;

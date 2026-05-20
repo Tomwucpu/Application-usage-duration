@@ -1,8 +1,9 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useEffect, useMemo, lazy, Suspense } from "react";
 import { useStore } from "../stores/useStore";
 import { useShallow } from "zustand/react/shallow";
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
+import type { AppSummary } from "../types";
 import { AppRanking } from "./AppRanking";
 import { DatePicker } from "./DatePicker";
 
@@ -31,6 +32,31 @@ function formatTime(seconds: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function fmtLocalDate(dt: Date): string {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const day = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function getWeekRange(dateStr: string): { start: string; end: string } {
+  const d = new Date(dateStr + "T00:00:00");
+  const dayOfWeek = d.getDay();
+  const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + offsetToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return { start: fmtLocalDate(monday), end: fmtLocalDate(sunday) };
+}
+
+function getMonthRange(dateStr: string): { start: string; end: string } {
+  const d = new Date(dateStr + "T00:00:00");
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  return { start: fmtLocalDate(first), end: fmtLocalDate(last) };
+}
+
 export function Dashboard() {
   const {
     tracker,
@@ -38,11 +64,15 @@ export function Dashboard() {
     selectedDate,
     loading,
     hourlyBreakdown,
-    dailyBreakdown,
+    rangeBreakdown,
+    rangeBreakdownRange,
+    viewMode,
+    customStartDate,
+    customEndDate,
     setDate,
     refresh,
     loadHourlyBreakdown,
-    loadDailyBreakdown,
+    loadRangeBreakdown,
   } = useStore(useShallow(
     (s) => ({
       tracker: s.tracker,
@@ -50,22 +80,65 @@ export function Dashboard() {
       selectedDate: s.selectedDate,
       loading: s.loading,
       hourlyBreakdown: s.hourlyBreakdown,
-      dailyBreakdown: s.dailyBreakdown,
+      rangeBreakdown: s.rangeBreakdown,
+      rangeBreakdownRange: s.rangeBreakdownRange,
+      viewMode: s.viewMode,
+      customStartDate: s.customStartDate,
+      customEndDate: s.customEndDate,
       setDate: s.setDate,
       refresh: s.refresh,
       loadHourlyBreakdown: s.loadHourlyBreakdown,
-      loadDailyBreakdown: s.loadDailyBreakdown,
+      loadRangeBreakdown: s.loadRangeBreakdown,
     }),
   ));
   const { t, locale } = useT();
 
   useEffect(() => {
-    loadHourlyBreakdown(selectedDate);
-  }, [loadHourlyBreakdown, selectedDate]);
+    if (viewMode === "daily") {
+      loadHourlyBreakdown(selectedDate);
+      const { start, end } = getWeekRange(selectedDate);
+      loadRangeBreakdown(start, end);
+    } else if (viewMode === "weekly") {
+      const { start, end } = getWeekRange(selectedDate);
+      loadRangeBreakdown(start, end);
+    } else if (viewMode === "monthly") {
+      const { start, end } = getMonthRange(selectedDate);
+      loadRangeBreakdown(start, end);
+    } else if (viewMode === "custom" && customStartDate && customEndDate) {
+      loadRangeBreakdown(customStartDate, customEndDate);
+    }
+  }, [viewMode, selectedDate, customStartDate, customEndDate, loadHourlyBreakdown, loadRangeBreakdown]);
 
-  useEffect(() => {
-    loadDailyBreakdown(selectedDate);
-  }, [loadDailyBreakdown, selectedDate]);
+  const displaySummary = useMemo(() => {
+    if (viewMode === "daily") {
+      return summary || null;
+    }
+    if (!rangeBreakdownRange) {
+      return null;
+    }
+    if (!rangeBreakdown || rangeBreakdown.length === 0) {
+      return { total_seconds: 0, apps: [], hourly: [] };
+    }
+    const appMap = new Map<string, number>();
+    let totalSecs = 0;
+    for (const item of rangeBreakdown) {
+      appMap.set(item.app_name, (appMap.get(item.app_name) || 0) + item.total_seconds);
+      totalSecs += item.total_seconds;
+    }
+    const apps: AppSummary[] = [...appMap.entries()]
+      .map(([app_name, total_seconds]) => ({
+        app_name,
+        total_seconds,
+        percentage: totalSecs > 0 ? (total_seconds / totalSecs) * 100 : 0,
+      }))
+      .sort((a, b) => b.total_seconds - a.total_seconds);
+
+    return {
+      total_seconds: totalSecs,
+      apps,
+      hourly: [],
+    };
+  }, [viewMode, summary, rangeBreakdown, rangeBreakdownRange]);
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -117,7 +190,7 @@ export function Dashboard() {
         <button
           onClick={() => refresh()}
           disabled={loading}
-          className="rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors duration-200 disabled:opacity-50 dark:border-slate-700/70 dark:bg-slate-900/90 dark:text-slate-300"
+          className="rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-700 shrink-0 transition-colors duration-200 disabled:opacity-50 dark:border-slate-700/70 dark:bg-slate-900/90 dark:text-slate-300"
         >
           {loading ? t("refresh.loading") : t("refresh")}
         </button>
@@ -125,19 +198,19 @@ export function Dashboard() {
 
       {/* Dashboard content */}
       <>
-        {summary && (
+        {displaySummary ? (
           <>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
                 <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.total")}</div>
                 <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
-                  {formatDuration(summary.total_seconds, locale)}
+                  {formatDuration(displaySummary.total_seconds, locale)}
                 </div>
               </div>
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
                 <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.apps")}</div>
                 <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
-                  {summary.apps.length}
+                  {displaySummary.apps.length}
                 </div>
               </div>
             </div>
@@ -145,15 +218,13 @@ export function Dashboard() {
             <Suspense fallback={<div className="text-center text-slate-500 py-8">{t("loading")}</div>}>
               <StackedBarChart
                 hourlyData={hourlyBreakdown}
-                dailyData={dailyBreakdown}
+                dailyData={rangeBreakdown}
               />
             </Suspense>
 
-            <AppRanking apps={summary.apps} totalSeconds={summary.total_seconds} loading={loading} />
+            <AppRanking apps={displaySummary.apps} totalSeconds={displaySummary.total_seconds} loading={loading} />
           </>
-        )}
-
-        {!summary && (
+        ) : (
           <div className="text-center text-slate-500 py-12">{t("loading")}</div>
         )}
       </>
