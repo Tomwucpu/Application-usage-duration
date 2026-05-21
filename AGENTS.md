@@ -9,7 +9,7 @@ npm run dev          # Vite only (no Rust), port 1420 strict
 npm run tauri dev    # Full app (Vite + Tauri window)
 npm run build        # tsc type-check then vite build (MUST pass tsc to succeed)
 npm run test         # Vitest (2 test files: exportUtils.test.ts, importUtils.test.ts)
-cargo test           # Rust tests (run inside src-tauri/)
+cargo test           # Rust tests (run inside src-tauri/; 5 tests in tracker.rs only, no DB tests)
 ```
 
 ## Component directory structure
@@ -21,10 +21,11 @@ src/components/
 ├── Dashboard.tsx              (page, lazy-loaded)
 ├── SettingsPage.tsx           (page, lazy-loaded)
 ├── StackedBarChart.tsx        (page, lazy-loaded from Dashboard)
+├── AppNames.ts                (getDisplayName utility)
 ├── dashboard/                 AppRanking.tsx, DatePicker.tsx
 ├── breakdown/                 DateRangePicker.tsx
-├── settings/                  ImportDialog.tsx, LanguageSwitcher.tsx
-└── shared/                    ToastStack.tsx
+├── settings/                  DataIO.tsx, IdleThreshold.tsx, IgnoredApps.tsx, ImportDialog.tsx, LanguageSwitcher.tsx, Retention.tsx
+└── shared/                    InfoTooltip.tsx, ToastStack.tsx
 ```
 
 ## Frontend gotchas
@@ -39,6 +40,8 @@ const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = Str
 ```
 Both `Dashboard.tsx` and `StackedBarChart.tsx` define their own `fmtLocalDate` helper — keep them in sync.
 
+**Known violation:** `useStore.ts` `setViewMode` (line ~280) still uses `toISOString()` to default custom range dates. This is tolerated because it defaults to last 7 days, but be aware it can produce off-by-one near midnight.
+
 ### Store caching quirk
 `loadRangeBreakdown` in `useStore.ts` only skips fetch when `rangeBreakdown.length > 0` (alongside range match). An empty-result range is NOT cached and will refetch on every invocation. Check `rangeBreakdownRange` (non-null = loaded) to distinguish "loading" from "loaded but empty".
 
@@ -50,7 +53,7 @@ Both `Dashboard.tsx` and `StackedBarChart.tsx` define their own `fmtLocalDate` h
 ### Rendering empty data
 `Dashboard.tsx` `displaySummary` returns `{ total_seconds: 0, apps: [], hourly: [] }` when range data is loaded-but-empty, and `null` only when unloaded. Summary cards, chart, and `AppRanking` all receive this empty object — AppRanking handles `apps.length === 0` internally with a "No data" message.
 
-### dark mode
+### Dark mode
 Controlled by `dark` class on `document.documentElement`. Store sets `localStorage("theme")` + toggles classList. Tailwind `darkMode: "class"`.
 
 ### Routing
@@ -77,16 +80,16 @@ The `useT()` hook returns `t: (key: keyof Translations) => string` (strict liter
 Single `Mutex<Connection>` — all DB operations must serialize through it. No connection pool.
 
 ### Settings table
-Key-value store. Known keys: `locale`, `retention_days` (0 = keep forever), `ignored_apps` (JSON array), `ignored_apps_enabled` ("true"/"false").
+Key-value store. Known keys: `locale`, `retention_days` (0 = keep forever), `ignored_apps` (JSON array), `ignored_apps_enabled` ("true"/"false"), `afk_threshold_seconds` (seconds as string, default 300 = 5 min).
 
-### AFK threshold
-Hardcoded 300 seconds (5 min) in `tracker.rs`, not configurable.
+### AFK threshold — configurable
+The AFK threshold is no longer hardcoded. `tracker.rs` reads `afk_threshold_seconds` from the settings table at tracking start, defaulting to 300 if unset. The `IdleThreshold` component in SettingsPage lets users choose presets (5/10/15/30 min) or a custom value. The threshold is read once when tracking starts — changing it requires pausing/resuming tracking to take effect.
 
 ### Tray close behavior
 `WindowEvent::CloseRequested` calls `api.prevent_close()` + `window.hide()`. User must quit via tray menu or `Ctrl+C` in dev.
 
 ### Tracker lock scope — CRITICAL
-`get_active_window_info()` must be called **before** `state.lock()`, not inside it (tracker.rs:361). When the tracker app itself is foreground, `GetWindowTextW` sends synchronous `WM_GETTEXT` to the main thread. If called inside the lock, the main thread's invoke processing can block on `db.conn` while the tracking thread holds `state.lock()` waiting for the main thread — causing refresh to hang indefinitely.
+`get_active_window_info()` must be called **before** `state.lock()`, not inside it (tracker.rs:365). When the tracker app itself is foreground, `GetWindowTextW` sends synchronous `WM_GETTEXT` to the main thread. If called inside the lock, the main thread's invoke processing can block on `db.conn` while the tracking thread holds `state.lock()` waiting for the main thread — causing refresh to hang indefinitely.
 
 ### `import_records_batch` — param count
 The dedup `SELECT` SQL uses 8 placeholders (`?1`-`?8`). Each `?N` placeholder that appears multiple times in SQL (e.g., `?2` in both sides of an OR) must be bound **once** in `params![]`. Passing extra params causes rusqlite errors at runtime (rejects silently, rolls back).
@@ -95,7 +98,10 @@ The dedup `SELECT` SQL uses 8 placeholders (`?1`-`?8`). Each `?N` placeholder th
 After `COMMIT`, `drop(conn)` before calling `upsert_app_metadata`. `upsert_app_metadata` also acquires `self.conn.lock()`, and holding the lock from the batch method across both calls would deadlock (same-thread Mutex re-entry on `std::sync::Mutex`).
 
 ### App metadata population
-`import_records_batch` now writes `app_metadata` for imported apps with non-null `app_path`. This allows `get_all_app_icons` to find and extract icons. Icons only appear if the `app_path` exists on the current machine (same install path as exporting machine).
+`import_records_batch` writes `app_metadata` for imported apps with non-null `app_path`. This allows `get_all_app_icons` to find and extract icons. Icons only appear if the `app_path` exists on the current machine (same install path as exporting machine).
+
+### Rust tests
+Only `tracker.rs` has tests (5 tests for `should_ignore_app_from_settings`). No DB-level tests — `cargo test` does not exercise SQLite logic.
 
 ## Type constraints
 
