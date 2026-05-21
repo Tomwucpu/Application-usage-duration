@@ -4,8 +4,8 @@ import { useShallow } from "zustand/react/shallow";
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
 import type { AppSummary } from "../types";
-import { AppRanking } from "./AppRanking";
-import { DatePicker } from "./DatePicker";
+import { AppRanking } from "./dashboard/AppRanking";
+import { DatePicker } from "./dashboard/DatePicker";
 
 const StackedBarChart = lazy(async () => {
   const mod = await import("./StackedBarChart");

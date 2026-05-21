@@ -1,8 +1,8 @@
-import { useT } from "../i18n";
-import type { Locale } from "../i18n";
-import { useStore } from "../stores/useStore";
+import { useT } from "../../i18n";
+import type { Locale } from "../../i18n";
+import { useStore } from "../../stores/useStore";
 
-import type { AppSummary } from "../types";
+import type { AppSummary } from "../../types";
 
 interface Props {
   apps: AppSummary[];

@@ -53,6 +53,24 @@ pub struct UsageRecord {
     pub hour: i32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportRecord {
+    pub app_name: String,
+    pub app_path: Option<String>,
+    pub window_title: Option<String>,
+    pub start_time: String,
+    pub end_time: String,
+    pub duration_seconds: i64,
+    pub date: String,
+    pub hour: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportBatchResult {
+    pub imported: i32,
+    pub skipped: i32,
+}
+
 pub struct Database {
     pub conn: Mutex<Connection>,
     metadata_cache: Mutex<Option<HashMap<String, String>>>,
@@ -115,6 +133,75 @@ impl Database {
         )
         .map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    pub fn import_records_batch(&self, records: &[ImportRecord]) -> Result<ImportBatchResult, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute("BEGIN IMMEDIATE", [])
+            .map_err(|e| e.to_string())?;
+
+        let result = (|| -> Result<ImportBatchResult, rusqlite::Error> {
+            let mut imported: i32 = 0;
+            let mut skipped: i32 = 0;
+
+            let mut check_stmt = conn.prepare(
+                "SELECT COUNT(*) FROM usage_records WHERE app_name = ?1 \
+                 AND (app_path = ?2 OR (app_path IS NULL AND ?2 IS NULL)) \
+                 AND (window_title = ?3 OR (window_title IS NULL AND ?3 IS NULL)) \
+                 AND start_time = ?4 AND end_time = ?5 AND duration_seconds = ?6 \
+                 AND date = ?7 AND hour = ?8",
+            )?;
+
+            let mut insert_stmt = conn.prepare(
+                "INSERT INTO usage_records (app_name, app_path, window_title, start_time, end_time, duration_seconds, date, hour) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            )?;
+
+            for record in records {
+                let count: i64 = check_stmt.query_row(
+                    params![
+                        record.app_name,
+                        record.app_path,
+                        record.window_title,
+                        record.start_time,
+                        record.end_time,
+                        record.duration_seconds,
+                        record.date,
+                        record.hour,
+                    ],
+                    |row| row.get(0),
+                )?;
+
+                if count == 0 {
+                    insert_stmt.execute(params![
+                        record.app_name,
+                        record.app_path,
+                        record.window_title,
+                        record.start_time,
+                        record.end_time,
+                        record.duration_seconds,
+                        record.date,
+                        record.hour,
+                    ])?;
+                    imported += 1;
+                } else {
+                    skipped += 1;
+                }
+            }
+
+            Ok(ImportBatchResult { imported, skipped })
+        })();
+
+        match result {
+            Ok(r) => {
+                conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+                Ok(r)
+            }
+            Err(e) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(e.to_string())
+            }
+        }
     }
 
     pub fn get_daily_summary(&self, date: &str) -> Result<DailySummary, String> {

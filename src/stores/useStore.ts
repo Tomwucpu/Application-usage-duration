@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
-import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown, UsageRecord, ViewMode } from "../types";
+import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown, UsageRecord, ViewMode, ImportBatchResult, ImportRecord } from "../types";
 
 const shouldLogBaseline = typeof location !== "undefined" && location.hostname === "localhost";
 
@@ -76,6 +76,10 @@ export const api = {
   },
   getRecordCount: async (startDate: string, endDate: string) => {
     const res = await invoke<number>("get_record_count", { startDate, endDate });
+    return res;
+  },
+  importRecordsBatch: async (records: ImportRecord[]) => {
+    const res = await invoke<ImportBatchResult>("import_records_batch", { records });
     return res;
   },
 };

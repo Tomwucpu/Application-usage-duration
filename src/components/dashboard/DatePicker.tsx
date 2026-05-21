@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Locale } from "../i18n";
+import type { Locale } from "../../i18n";
 
 interface DatePickerProps {
   value: string;

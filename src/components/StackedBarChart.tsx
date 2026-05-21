@@ -11,7 +11,7 @@ import {
 import type { HourlyAppBreakdown, DailyAppBreakdown } from "../types";
 import { useT } from "../i18n";
 import { useStore } from "../stores/useStore";
-import { DateRangePicker } from "./DateRangePicker";
+import { DateRangePicker } from "./breakdown/DateRangePicker";
 
 const COLORS = [
   "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",

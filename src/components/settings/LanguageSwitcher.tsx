@@ -1,4 +1,4 @@
-import { useT, type Locale } from "../i18n";
+import { useT, type Locale } from "../../i18n";
 
 const labels: Record<Locale, string> = {
   "zh-CN": "中",

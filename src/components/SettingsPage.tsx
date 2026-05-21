@@ -2,13 +2,16 @@ import { useState, useRef, useEffect } from "react";
 import { useStore, api } from "../stores/useStore";
 import { check } from "@tauri-apps/plugin-updater";
 import { useT, type Locale } from "../i18n";
-import { ToastStack, type ToastMessage, type ToastTone } from "./ToastStack";
+import { ToastStack, type ToastMessage, type ToastTone } from "./shared/ToastStack";
 import {
   buildCsvHeader,
   buildCsvRow,
   getExportFileName,
   type ExportFormat,
 } from "../utils/exportUtils";
+import { ImportDialog } from "./settings/ImportDialog";
+import { parseImportFile } from "../utils/importUtils";
+import type { ImportRecord } from "../types";
 
 const localeOptions: { value: Locale; labelKey: "settings.language.zh-CN" | "settings.language.en-US" }[] = [
   { value: "zh-CN", labelKey: "settings.language.zh-CN" },
@@ -38,6 +41,18 @@ type WindowWithSaveFilePicker = Window & {
       }>;
     },
   ) => Promise<FileSystemFileHandle>;
+}
+
+type WindowWithOpenFilePicker = Window & {
+  showOpenFilePicker?: (
+    options?: {
+      types?: Array<{
+        description?: string;
+        accept: Record<string, string[]>;
+      }>;
+      multiple?: boolean;
+    },
+  ) => Promise<FileSystemFileHandle[]>;
 }
 
 function LocaleSelect() {
@@ -119,6 +134,7 @@ export function SettingsPage() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastTimerRef = useRef<number[]>([]);
   const toastIdRef = useRef(0);
+  const [importRecords, setImportRecords] = useState<ImportRecord[] | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -286,6 +302,50 @@ export function SettingsPage() {
     }
   };
 
+  const handleImport = async () => {
+    const pickerWindow = window as WindowWithOpenFilePicker;
+
+    if (typeof pickerWindow.showOpenFilePicker !== "function") {
+      pushToast("error", t("settings.import.unsupported"));
+      return;
+    }
+
+    try {
+      const [handle] = await pickerWindow.showOpenFilePicker({
+        types: [
+          {
+            description: "CSV or JSON",
+            accept: {
+              "text/csv": [".csv"],
+              "application/json": [".json"],
+            },
+          },
+        ],
+        multiple: false,
+      });
+
+      if (!handle) {
+        pushToast("info", t("settings.import.cancelled"));
+        return;
+      }
+
+      const file = await handle.getFile();
+      const result = await parseImportFile(file);
+      if (!result.ok) {
+        pushToast("error", `${t("settings.import.failed")} ${result.error}`);
+        return;
+      }
+
+      setImportRecords(result.records);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        pushToast("info", t("settings.import.cancelled"));
+        return;
+      }
+      pushToast("error", t("settings.import.failed"));
+    }
+  };
+
   const handleCheckUpdates = async () => {
     setUpdating(true);
     setUpdateStatus(t("settings.update.checking"));
@@ -418,6 +478,26 @@ export function SettingsPage() {
             </div>
           </div>
 
+          {/* Data Import */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div className="mb-4">
+              <div className="flex items-center gap-2 mb-1">
+                <svg className="w-4 h-4 text-indigo-600 dark:text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t("settings.import.title")}</h3>
+              </div>
+            </div>
+            <button
+              onClick={() => void handleImport()}
+              className="px-4 py-2.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 active:bg-slate-300 dark:active:bg-slate-600 text-slate-900 dark:text-slate-100 font-medium text-sm transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
+            >
+              {t("settings.import.button")}
+            </button>
+          </div>
+
           {/* Retention */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
             <div className="mb-4">
@@ -497,7 +577,7 @@ export function SettingsPage() {
                   {appIcons[n] ? (
                     <img src={`data:image/png;base64,${appIcons[n]}`} alt={n} className="w-5 h-5 rounded-md mt-0.5 flex-shrink-0" />
                   ) : (
-                    <div className="w-5 h-5 rounded-md ml-1 flex-shrink-0 bg-slate-700 flex items-center justify-center text-[10px] text-slate-400 font-bold">
+                    <div className="w-5 h-5 rounded-md flex-shrink-0 bg-slate-700 flex items-center justify-center text-[10px] text-slate-400 font-bold">
                       {n.charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -508,6 +588,14 @@ export function SettingsPage() {
           </div>
         </div>
       </div>
+      {importRecords && (
+        <ImportDialog
+          records={importRecords}
+          onClose={() => setImportRecords(null)}
+          pushToast={pushToast}
+          t={t as (key: string) => string}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
-import { useT } from "../i18n";
-import type { Locale } from "../i18n";
+import { useT } from "../../i18n";
+import type { Locale } from "../../i18n";
 
 interface DateRangePickerProps {
   startDate: string | null;

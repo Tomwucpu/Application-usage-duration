@@ -3,7 +3,7 @@ mod icon;
 mod tracker;
 mod tray;
 
-use db::{DailyAppBreakdown, DailySummary, Database, HourlyAppBreakdown, UsageRecord};
+use db::{DailyAppBreakdown, DailySummary, Database, HourlyAppBreakdown, ImportBatchResult, ImportRecord, UsageRecord};
 use icon::IconCache;
 use std::sync::Arc;
 use tauri::{App, Manager, WindowEvent};
@@ -47,6 +47,14 @@ fn get_record_count(
     db: tauri::State<Arc<Database>>,
 ) -> Result<i64, String> {
     db.get_record_count(&start_date, &end_date)
+}
+
+#[tauri::command]
+fn import_records_batch(
+    records: Vec<ImportRecord>,
+    db: tauri::State<Arc<Database>>,
+) -> Result<ImportBatchResult, String> {
+    db.import_records_batch(&records)
 }
 
 #[tauri::command]
@@ -156,6 +164,7 @@ pub fn run() {
             get_all_records,
             get_records_range,
             get_record_count,
+            import_records_batch,
             tray::update_tray_menu
         ])
         .run(tauri::generate_context!())
