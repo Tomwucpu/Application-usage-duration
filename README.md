@@ -4,7 +4,7 @@
 
 ## 功能特性
 
-- **实时追踪**：每 2 秒轮询前台窗口，自动检测 AFK 空闲状态（5 分钟阈值）
+- **实时追踪**：每 2 秒轮询前台窗口，自动检测 AFK 空闲状态（可配置空闲阈值）
 - **仪表盘**：当日总时长、活跃应用数、应用排行榜（图标/时长/占比）、按小时堆叠柱状图
 - **多视图模式**：日视图 / 周视图 / 月视图 / 自定义日期范围
 - **应用图标**：从 exe 自动提取图标（SHGetFileInfoW + GDI），缓存 200 个 base64 PNG，图标缺失时回退为首字母占位
@@ -16,6 +16,7 @@
   - 数据导出（CSV / JSON）
   - 数据导入（CSV / JSON，含预览、去重、进度三步向导）
   - 数据保留策略（永久或自定义天数，启动时自动清理）
+  - 空闲阈值配置（5/10/15/30 分钟预设或自定义）
   - 忽略应用列表（支持显示图标）
   - 检查更新（Tauri updater 插件）
 - **本地 SQLite**：便携目录模式，数据库文件位于 exe 同级目录
@@ -53,10 +54,15 @@
 │   │   ├── breakdown/
 │   │   │   └── DateRangePicker.tsx  # 自定义日期范围选择
 │   │   ├── settings/
-│   │   │   ├── ImportDialog.tsx     # 数据导入向导
-│   │   │   └── LanguageSwitcher.tsx # 语言切换
+│   │   │   ├── DataIO.tsx            # 数据导出/导入
+│   │   │   ├── IdleThreshold.tsx     # 空闲阈值配置
+│   │   │   ├── IgnoredApps.tsx       # 忽略应用列表
+│   │   │   ├── ImportDialog.tsx      # 数据导入向导
+│   │   │   ├── LanguageSwitcher.tsx  # 语言切换
+│   │   │   └── Retention.tsx         # 数据保留策略
 │   │   └── shared/
-│   │       └── ToastStack.tsx       # Toast 通知栈
+│   │       ├── InfoTooltip.tsx       # 信息提示
+│   │       └── ToastStack.tsx        # Toast 通知栈
 │   ├── i18n/
 │   │   ├── index.ts              # useT hook
 │   │   ├── context.tsx           # I18nProvider
@@ -81,10 +87,6 @@
 │   │   └── tray.rs               # 系统托盘菜单
 │   └── capabilities/
 │       └── default.json          # 权限配置
-├── docs/
-│   ├── architecture-plan.md      # 架构设计
-│   ├── dev-log.md                # 开发日志
-│   └── release-guide.md          # 发布指南
 ├── public/                       # 静态资源
 ├── package.json
 ├── vite.config.ts
@@ -175,7 +177,7 @@ useStore.ts ── invoke("get_*") ──────── lib.rs (命令) → 
 | app_path | TEXT | 应用路径（图标提取用） |
 
 ### settings
-键值对存储，已知键：`locale`、`retention_days`、`ignored_apps`、`ignored_apps_enabled`
+键值对存储，已知键：`locale`、`retention_days`、`ignored_apps`、`ignored_apps_enabled`、`afk_threshold_seconds`
 
 ## 国际化
 
