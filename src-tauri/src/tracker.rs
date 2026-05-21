@@ -338,7 +338,12 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
     let db = tracker.db.clone();
     let state = tracker.state.clone();
     let icon_cache = tracker.icon_cache.clone();
-    let idle_threshold_seconds: u32 = 300;
+    let idle_threshold_seconds: u32 = db
+        .get_setting("afk_threshold_seconds")
+        .ok()
+        .flatten()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(300);
 
     std::thread::spawn(move || {
         let name_cache = NameCache::new();

@@ -10,6 +10,7 @@ import {
   type ExportFormat,
 } from "../utils/exportUtils";
 import { ImportDialog } from "./settings/ImportDialog";
+import { IdleThreshold } from "./settings/IdleThreshold";
 import { parseImportFile } from "../utils/importUtils";
 import type { ImportRecord } from "../types";
 
@@ -497,6 +498,9 @@ export function SettingsPage() {
               {t("settings.import.button")}
             </button>
           </div>
+
+          {/* Idle Threshold */}
+          <IdleThreshold t={t as (key: string) => string} pushToast={pushToast} />
 
           {/* Retention */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
