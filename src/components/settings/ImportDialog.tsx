@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import type { ImportRecord, ImportPreview } from "../../types";
-import { api } from "../../stores/useStore";
+import { api, useStore } from "../../stores/useStore";
 import { generatePreview, filterValidRecords } from "../../utils/importUtils";
 import type { ToastTone } from "../shared/ToastStack";
 
@@ -59,6 +59,7 @@ export function ImportDialog({ records, onClose, pushToast, t }: ImportDialogPro
       }
       setResults({ imported, skipped });
       setStep("results");
+      useStore.getState().ensureAppIconsLoaded(true);
     } catch {
       pushToast("error", t("settings.import.failed"));
       onClose();

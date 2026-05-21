@@ -1,58 +1,106 @@
 # Application Usage Duration
 
-一款基于 Tauri 2 + React + TypeScript 的桌面应用，用于追踪 Windows 前台应用使用时长，并以仪表盘方式展示统计结果。
+基于 Tauri 2 + React + TypeScript 的 Windows 桌面应用，追踪前台应用使用时长，通过仪表盘展示统计结果。
 
 ## 功能特性
 
-- 实时追踪当前应用状态（运行中、停止、AFK）
-- 按日统计总使用时长与活跃应用数
-- 应用排行榜（图标、时长、占比）
-- 应用分布可视化（按小时/按天堆叠柱状图）
-- 设置页能力：
-  - 主题切换（浅色/深色）
+- **实时追踪**：每 2 秒轮询前台窗口，自动检测 AFK 空闲状态（5 分钟阈值）
+- **仪表盘**：当日总时长、活跃应用数、应用排行榜（图标/时长/占比）、按小时堆叠柱状图
+- **多视图模式**：日视图 / 周视图 / 月视图 / 自定义日期范围
+- **应用图标**：从 exe 自动提取图标（SHGetFileInfoW + GDI），缓存 200 个 base64 PNG，图标缺失时回退为首字母占位
+- **系统托盘**：暂停/恢复追踪、显示/隐藏窗口、退出；关闭窗口隐藏至托盘
+- **设置页**：
+  - 主题切换（浅色 / 深色）
   - 语言切换（简体中文 / English）
   - 开机自启
   - 数据导出（CSV / JSON）
-  - 数据保留策略（永久或自定义天数）
-  - 忽略应用列表（支持显示应用图标）
-- 本地 SQLite 持久化存储（便携目录模式）
+  - 数据导入（CSV / JSON，含预览、去重、进度三步向导）
+  - 数据保留策略（永久或自定义天数，启动时自动清理）
+  - 忽略应用列表（支持显示图标）
+  - 检查更新（Tauri updater 插件）
+- **本地 SQLite**：便携目录模式，数据库文件位于 exe 同级目录
 
 ## 技术栈
 
-- 桌面框架: Tauri 2.x
-- 前端: React 18 + TypeScript + Vite
-- 状态管理: Zustand
-- 样式: Tailwind CSS
-- 图表: Recharts
-- 后端: Rust
-- 数据库: SQLite (rusqlite)
-- 平台 API: windows-rs
+| 层级 | 技术 |
+|------|------|
+| 桌面框架 | Tauri 2.x |
+| 前端 | React 18 + TypeScript + Vite |
+| 状态管理 | Zustand 5 |
+| 样式 | Tailwind CSS 3 |
+| 图表 | Recharts 3 |
+| 日期 | date-fns 4 |
+| 后端 | Rust |
+| 数据库 | SQLite (rusqlite) |
+| 平台 API | windows-rs 0.57 |
+| 插件 | autostart, updater, shell |
 
 ## 目录结构
 
 ```text
-.
-|- src/                    # 前端源码
-|  |- components/          # 视图组件
-|  |- stores/              # Zustand 状态与前后端 API 封装
-|  |- i18n/                # 国际化文案与上下文
-|  |- utils/               # 工具函数（如导出）
-|  |- types/               # TypeScript 类型定义
-|- src-tauri/              # Tauri + Rust 后端
-|  |- src/                 # 命令、追踪、数据库、托盘逻辑
-|  |- capabilities/        # Tauri 能力权限
-|- docs/                   # 架构与开发日志
-|- public/                 # 静态资源
+├── src/                          # 前端源码
+│   ├── App.tsx                   # 根组件，路由切换（dashboard / settings）
+│   ├── main.tsx                  # React 入口
+│   ├── index.css                 # Tailwind 指令 + 自定义滚动条
+│   ├── components/
+│   │   ├── Dashboard.tsx         # 仪表盘页（懒加载）
+│   │   ├── StackedBarChart.tsx   # 堆叠柱状图页（懒加载）
+│   │   ├── SettingsPage.tsx      # 设置页（懒加载）
+│   │   ├── AppNames.ts           # 应用名展示逻辑
+│   │   ├── dashboard/
+│   │   │   ├── AppRanking.tsx    # 应用排行榜
+│   │   │   └── DatePicker.tsx    # 日期选择器
+│   │   ├── breakdown/
+│   │   │   └── DateRangePicker.tsx  # 自定义日期范围选择
+│   │   ├── settings/
+│   │   │   ├── ImportDialog.tsx     # 数据导入向导
+│   │   │   └── LanguageSwitcher.tsx # 语言切换
+│   │   └── shared/
+│   │       └── ToastStack.tsx       # Toast 通知栈
+│   ├── i18n/
+│   │   ├── index.ts              # useT hook
+│   │   ├── context.tsx           # I18nProvider
+│   │   ├── zh-CN.json            # 中文文案
+│   │   └── en-US.json            # 英文文案
+│   ├── stores/
+│   │   └── useStore.ts           # Zustand store + IPC 封装
+│   ├── types/
+│   │   └── index.ts              # TypeScript 类型定义
+│   └── utils/
+│       ├── exportUtils.ts        # 导出工具
+│       ├── exportUtils.test.ts   # 导出单元测试
+│       ├── importUtils.ts        # 导入解析/验证
+│       └── importUtils.test.ts   # 导入单元测试
+├── src-tauri/                    # Rust 后端
+│   ├── src/
+│   │   ├── main.rs               # 应用入口，Tauri builder
+│   │   ├── lib.rs                # IPC 命令（追踪控制、数据库查询、设置、导入）
+│   │   ├── db.rs                 # SQLite 建表 / 查询 / 批量导入 / 元数据缓存
+│   │   ├── tracker.rs            # 前台窗口轮询、AFK 检测、使用记录写入
+│   │   ├── icon.rs               # Windows 图标提取（SHGetFileInfoW → GDI → PNG → base64）
+│   │   └── tray.rs               # 系统托盘菜单
+│   └── capabilities/
+│       └── default.json          # 权限配置
+├── docs/
+│   ├── architecture-plan.md      # 架构设计
+│   ├── dev-log.md                # 开发日志
+│   └── release-guide.md          # 发布指南
+├── public/                       # 静态资源
+├── package.json
+├── vite.config.ts
+├── tsconfig.json
+├── tailwind.config.js
+└── README.md
 ```
 
 ## 环境要求
 
 - Node.js 18+
 - Rust stable（建议通过 rustup 安装）
-- Windows 10/11（当前追踪与图标提取主要面向 Windows）
-- Tauri 依赖环境
+- Windows 10/11（追踪与图标提取仅在 Windows 下有效，macOS 为 stub）
+- Tauri 2 系统依赖（参阅 [Tauri 文档](https://v2.tauri.app/start/prerequisites/)）
 
-建议先确认工具链版本：
+验证工具链：
 
 ```powershell
 node -v
@@ -63,83 +111,101 @@ cargo -V
 
 ## 快速开始
 
-1. 安装依赖
-
 ```powershell
+# 安装依赖
 npm install
-```
 
-2. 前端开发模式（仅 Vite）
-
-```powershell
+# 仅前端开发（Vite，端口 1420）
 npm run dev
-```
 
-3. 桌面应用开发模式（Tauri + 前后端联调）
-
-```powershell
+# 完整桌面应用开发（Tauri + 前后端联调）
 npm run tauri dev
 ```
 
 ## 构建与测试
 
-- 类型检查 + 前端构建
-
 ```powershell
+# 类型检查 + 前端构建
 npm run build
-```
 
-- 单元测试（Vitest）
-
-```powershell
+# 前端单元测试（Vitest）
 npm run test
-```
 
-- 桌面应用打包
+# Rust 测试
+cargo test        # 在 src-tauri/ 目录下执行
 
-```powershell
+# 桌面应用打包
 npm run tauri build
 ```
 
-## 核心数据说明
+## 架构概览
 
-- 使用记录表: `usage_records`
-  - 记录字段包括应用名、路径、窗口标题、开始/结束时间、持续秒数、日期、小时
-- 应用元数据表: `app_metadata`
-  - 存储 `app_name` 与 `app_path` 映射，供图标提取与缓存命中
-- 设置表: `settings`
-  - 存储主题、保留天数、忽略应用等配置
+```
+前端 (React 18 + TS + Vite)          后端 (Rust via Tauri IPC)
+──────────────────────────────       ─────────────────────────────
+useStore.ts ←─ listen("tracker-state") ── tracker.rs (轮询循环)
+useStore.ts ── invoke("get_*") ──────── lib.rs (命令) → db.rs (SQLite)
+```
+
+- **IPC 模式**：前端通过 `invoke()` 调用 `#[tauri::command]`；后端通过 `app.emit("tracker-state")` 推送实时状态
+- **状态管理**：单一 Zustand store，初始化时启动追踪并订阅实时事件（1 秒节流）
+- **数据库**：`<exe_dir>/usage.db`，首次启动自动建表，包含 `usage_records`、`app_metadata`、`settings` 三张表
+- **追踪循环**：独立线程每 2 秒轮询 `GetForegroundWindow` / `GetLastInputInfo`，应用切换或 AFK 状态变化时刷新前一段落记录
+- **图标缓存**：内存中 LRU 上限 200 个，超出时清空重建
+
+## 数据模型
+
+### usage_records
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | INTEGER | 自增主键 |
+| app_name | TEXT | 应用名称 |
+| app_path | TEXT | 可执行文件路径（可空） |
+| window_title | TEXT | 窗口标题（可空） |
+| start_time | TEXT | 开始时间 (ISO 8601) |
+| end_time | TEXT | 结束时间 (ISO 8601) |
+| duration_seconds | INTEGER | 持续秒数 |
+| date | TEXT | 日期 (YYYY-MM-DD) |
+| hour | INTEGER | 小时 (0-23) |
+
+### app_metadata
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| app_name | TEXT | 应用名称 |
+| app_path | TEXT | 应用路径（图标提取用） |
+
+### settings
+键值对存储，已知键：`locale`、`retention_days`、`ignored_apps`、`ignored_apps_enabled`
 
 ## 国际化
 
-支持以下语言：
+支持语言：
 
-- `zh-CN`
-- `en-US`
+- `zh-CN` (简体中文)
+- `en-US` (English)
 
-文案文件位于：
-
-- `src/i18n/zh-CN.json`
-- `src/i18n/en-US.json`
+文案文件：`src/i18n/zh-CN.json`、`src/i18n/en-US.json`
 
 ## 常见问题
 
-### 1. 为什么某些应用没有图标？
+### 为什么某些应用没有图标？
+可能原因：应用路径不可访问、系统权限限制、或该进程图标提取失败。界面自动回退为首字母占位。
 
-可能原因：应用路径不可访问、系统权限限制、或该进程图标提取失败。界面会自动回退为首字母占位。
+### 为什么数据没有实时变化？
+请确认追踪状态为运行中（检查系统托盘菜单），并确保未进入 AFK 空闲状态。
 
-### 2. 为什么数据没有实时变化？
+### 设置了自定义保留天数后何时生效？
+保存后配置立即落库；历史数据清理在应用启动阶段自动执行。
 
-请确认应用追踪状态为运行中，并检查系统是否进入空闲（AFK）状态。
-
-### 3. 设置了自定义保留天数后何时生效？
-
-保存后配置立即落库；历史数据清理在应用启动阶段会根据配置执行。
+### 如何导入历史数据？
+在设置页使用"导入数据"功能，支持 CSV / JSON 格式。导入时自动预览、验证并去重。
 
 ## 开发文档
 
-- 架构说明: `docs/architecture-plan.md`
-- 变更日志: `docs/dev-log.md`
+- 架构设计：`docs/architecture-plan.md`
+- 开发日志：`docs/dev-log.md`
+- 发布指南：`docs/release-guide.md`
+- 导入功能设计：`docs/superpowers/specs/2026-05-21-import-data-design.md`
 
 ## 许可证
 

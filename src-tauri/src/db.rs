@@ -195,6 +195,17 @@ impl Database {
         match result {
             Ok(r) => {
                 conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+                drop(conn);
+
+                let mut seen = std::collections::HashSet::new();
+                for record in records {
+                    if let Some(ref path) = record.app_path {
+                        if !path.is_empty() && seen.insert(&record.app_name) {
+                            let _ = self.upsert_app_metadata(&record.app_name, path);
+                        }
+                    }
+                }
+
                 Ok(r)
             }
             Err(e) => {

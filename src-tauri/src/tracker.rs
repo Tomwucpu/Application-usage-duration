@@ -357,6 +357,7 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
             let today = now.format("%Y-%m-%d").to_string();
             let idle_secs = get_idle_seconds();
             let is_idle = idle_secs > idle_threshold_seconds;
+            let window_info = if !is_idle { get_active_window_info() } else { None };
 
             let mut current_state = state.lock().unwrap();
 
@@ -434,7 +435,10 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
             if !is_idle {
                 current_state.is_afk = false;
 
-                if let Some((app_name, window_title, app_path)) = get_active_window_info() {
+                if let Some((app_name, window_title, app_path)) = window_info.as_ref() {
+                    let app_name = app_name.clone();
+                    let window_title = window_title.clone();
+                    let app_path = app_path.clone();
                     let display_name = app_path
                         .as_ref()
                         .and_then(|p| name_cache.resolve(p))
