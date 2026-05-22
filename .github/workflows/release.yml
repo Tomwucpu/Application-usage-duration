@@ -13,12 +13,13 @@ jobs:
   tauri-release:
     runs-on: windows-latest
     env:
-      # Required for updater artifacts signing (Tauri updater)
+      # Suppress Node 20 deprecation for actions/* (forced to Node 24)
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
 
-      # Reserved for future Windows code-signing integration (currently unused)
       WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
       WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
 
@@ -29,7 +30,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Setup Rust toolchain
