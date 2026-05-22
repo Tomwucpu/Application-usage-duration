@@ -94,7 +94,13 @@
   "settings.update.checking": "检查中...",
   "settings.update.latest": "当前已是最新版本。",
   "settings.update.available": "发现新版本：",
+  "settings.update.install": "下载并安装",
+  "settings.update.downloading": "下载中...",
   "settings.update.installed": "更新已下载并准备安装。",
   "settings.update.failed": "检查或安装更新失败。",
-  "settings.update.restart_hint": "更新已准备就绪，请重启应用完成安装。"
+  "settings.update.restart_hint": "更新已准备就绪，请重启应用完成安装。",
+  "settings.update.release_notes": "更新内容",
+  "settings.update.download_page": "前往 GitHub 下载页面",
+  "settings.update.error_api": "无法连接 GitHub，请检查网络后重试。",
+  "settings.update.no_latest_json": "未找到安装包元数据，请前往 GitHub 手动下载。"
 }

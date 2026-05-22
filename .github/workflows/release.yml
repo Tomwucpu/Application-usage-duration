@@ -53,7 +53,7 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Screen Time Tracker ${{ github.ref_name }}"
           releaseBody: "Automated release for ${{ github.ref_name }}"
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
 
       # Future code-signing placeholder:

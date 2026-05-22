@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicoverbruggen/tauri-docs/refs/heads/dev/src/content/docs/_schema/config.schema.json",
   "productName": "screen-time-tracker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.screen-time-tracker.app",
   "build": {
     "frontendDist": "../dist",

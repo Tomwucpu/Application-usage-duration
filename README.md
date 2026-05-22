@@ -202,13 +202,6 @@ useStore.ts ── invoke("get_*") ──────── lib.rs (命令) → 
 ### 如何导入历史数据？
 在设置页使用"导入数据"功能，支持 CSV / JSON 格式。导入时自动预览、验证并去重。
 
-## 开发文档
-
-- 架构设计：`docs/architecture-plan.md`
-- 开发日志：`docs/dev-log.md`
-- 发布指南：`docs/release-guide.md`
-- 导入功能设计：`docs/superpowers/specs/2026-05-21-import-data-design.md`
-
 ## 许可证
 
 当前仓库未包含明确许可证文件。如需开源发布，建议补充 `LICENSE`。

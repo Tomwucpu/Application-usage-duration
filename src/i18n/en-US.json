@@ -94,7 +94,13 @@
   "settings.update.checking": "Checking...",
   "settings.update.latest": "You are on the latest version.",
   "settings.update.available": "New version found:",
+  "settings.update.install": "Download & Install",
+  "settings.update.downloading": "Downloading...",
   "settings.update.installed": "Update downloaded and ready to install.",
   "settings.update.failed": "Failed to check or install update.",
-  "settings.update.restart_hint": "Update is ready. Please restart the app to finish installation."
+  "settings.update.restart_hint": "Update is ready. Please restart the app to finish installation.",
+  "settings.update.release_notes": "Release notes",
+  "settings.update.download_page": "Open GitHub download page",
+  "settings.update.error_api": "Failed to connect to GitHub. Check your network and try again.",
+  "settings.update.no_latest_json": "Installer metadata not found. Please download manually from GitHub."
 }

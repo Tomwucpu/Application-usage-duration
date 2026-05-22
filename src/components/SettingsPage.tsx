@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useStore } from "../stores/useStore";
-import { check } from "@tauri-apps/plugin-updater";
 import { useT, type Locale } from "../i18n";
 import { ToastStack, type ToastMessage, type ToastTone } from "./shared/ToastStack";
+import { UpdateChecker } from "./settings/UpdateChecker";
 import { IdleThreshold } from "./settings/IdleThreshold";
 import { IgnoredApps } from "./settings/IgnoredApps";
 import { DataIO } from "./settings/DataIO";
@@ -80,8 +80,6 @@ export function SettingsPage() {
   const autoStartEnabled = useStore((s) => s.autoStartEnabled);
   const toggleAutoStart = useStore((s) => s.toggleAutoStart);
   const { t } = useT();
-  const [updating, setUpdating] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState<string>("");
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastTimerRef = useRef<number[]>([]);
   const toastIdRef = useRef(0);
@@ -108,34 +106,6 @@ export function SettingsPage() {
     }, 2800);
 
     toastTimerRef.current.push(timerId);
-  };
-
-  const handleCheckUpdates = async () => {
-    setUpdating(true);
-    setUpdateStatus(t("settings.update.checking"));
-
-    try {
-      const update = await check();
-      if (!update) {
-        setUpdateStatus(t("settings.update.latest"));
-        return;
-      }
-
-      const version = (update as { version?: string }).version || "";
-      setUpdateStatus(
-        version
-          ? `${t("settings.update.available")} ${version}`
-          : t("settings.update.available"),
-      );
-
-      await update.downloadAndInstall();
-      setUpdateStatus(t("settings.update.installed"));
-      pushToast("info", t("settings.update.restart_hint"));
-    } catch {
-      setUpdateStatus(t("settings.update.failed"));
-    } finally {
-      setUpdating(false);
-    }
   };
 
   return (
@@ -196,23 +166,7 @@ export function SettingsPage() {
           </div>
 
           {/* Auto Update */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {t("settings.update.title")}
-              </span>
-              <button
-                onClick={() => void handleCheckUpdates()}
-                disabled={updating}
-                className="px-3 py-1.5 rounded-md text-sm font-medium bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-60 text-white transition-colors"
-              >
-                {updating ? t("settings.update.checking") : t("settings.update.action")}
-              </button>
-            </div>
-            {updateStatus && (
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{updateStatus}</p>
-            )}
-          </div>
+          <UpdateChecker t={t as (key: string) => string} pushToast={pushToast} />
 
           {/* Data Export & Import */}
           <DataIO t={t as (key: string) => string} pushToast={pushToast} />
