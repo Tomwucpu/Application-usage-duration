@@ -44,7 +44,7 @@
         "https://github.com/Tomwucpu/Application-usage-duration/releases/latest/download/latest.json"
       ],
       "dialog": false,
-      "pubkey": "$TAURI_UPDATER_PUBKEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY5RDM2MzNCNzJFNkE4NwpSV1NIYWk2M016YWRENno2ZHNvSmgrWnBQRUp4TW5IbTliaC9DcDc3VHZtaXRORkFHTWVucVN6cwo="
     }
   }
 }
