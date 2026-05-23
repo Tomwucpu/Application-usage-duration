@@ -13,7 +13,12 @@ const SettingsPage = lazy(async () => {
   return { default: mod.SettingsPage };
 });
 
-type View = "dashboard" | "settings";
+const AppManagement = lazy(async () => {
+  const mod = await import("./components/appManagement/AppManagement");
+  return { default: mod.AppManagement };
+});
+
+type View = "dashboard" | "settings" | "appManagement";
 
 function NavButton({
   active,
@@ -90,12 +95,23 @@ function AppInner() {
               <circle cx="12" cy="12" r="3" />
             </svg>
           </NavButton>
+          <NavButton
+            active={currentView === "appManagement"}
+            onClick={() => setCurrentView("appManagement")}
+            title={t("appManagement.title")}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+          </NavButton>
         </div>
       </header>
       <main className="flex-1 overflow-y-auto custom-scrollbar p-6" key={currentView}>
         <div className="animate-fadeIn">
           <Suspense fallback={<div className="text-center text-slate-500 py-12">{t("loading")}</div>}>
-            {currentView === "dashboard" ? <Dashboard /> : <SettingsPage />}
+            {currentView === "dashboard" ? <Dashboard /> : currentView === "settings" ? <SettingsPage /> : <AppManagement />}
           </Suspense>
         </div>
       </main>
