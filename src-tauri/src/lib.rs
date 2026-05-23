@@ -3,7 +3,7 @@ mod icon;
 mod tracker;
 mod tray;
 
-use db::{DailyAppBreakdown, DailySummary, Database, HourlyAppBreakdown, ImportBatchResult, ImportRecord, UsageRecord};
+use db::{AppMetadataItem, DailyAppBreakdown, DailySummary, Database, HourlyAppBreakdown, ImportBatchResult, ImportRecord, UsageRecord};
 use icon::IconCache;
 use std::sync::Arc;
 use tauri::{App, Manager, Theme, WindowEvent};
@@ -124,23 +124,142 @@ async fn get_all_app_icons(
     db: tauri::State<'_, Arc<Database>>,
     icon_cache: tauri::State<'_, Arc<IconCache>>,
 ) -> Result<std::collections::HashMap<String, String>, String> {
-    let app_paths = db.get_all_app_metadata()?;
-    let cache = icon_cache.inner().clone();
+    use std::collections::HashMap;
 
-    let map = tokio::task::spawn_blocking(move || -> std::collections::HashMap<String, String> {
-        let mut map = std::collections::HashMap::new();
-        for (name, path) in app_paths {
-            let icon = cache.get_or_extract(&path);
-            if !icon.is_empty() {
-                map.insert(name, icon);
-            }
+    let app_meta = db.get_all_app_metadata()?;
+
+    let app_custom_icons = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT app_name, custom_icon_path FROM app_metadata WHERE custom_icon_path IS NOT NULL")
+            .map_err(|e| e.to_string())?;
+        let mut map = HashMap::new();
+        let rows: Vec<(String, String)> = stmt
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        for (name, path) in rows {
+            map.insert(name, path);
         }
         map
+    };
+
+    let app_default_icon_paths = {
+        let conn = db.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT app_name, default_icon_path FROM app_metadata WHERE default_icon_path IS NOT NULL")
+            .map_err(|e| e.to_string())?;
+        let mut map = HashMap::new();
+        let rows: Vec<(String, String)> = stmt
+            .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        for (name, path) in rows {
+            map.insert(name, path);
+        }
+        map
+    };
+
+    let cache = icon_cache.inner().clone();
+
+    let map = tokio::task::spawn_blocking(move || -> HashMap<String, String> {
+        let mut result = HashMap::new();
+
+        for (name, exe_path) in &app_meta {
+            // Priority: custom_icon_path > default_icon_path > exe extraction
+            if let Some(custom_path) = app_custom_icons.get(name) {
+                let icon = cache.get_or_extract(custom_path);
+                if !icon.is_empty() {
+                    result.insert(name.clone(), icon);
+                    continue;
+                }
+            }
+
+            if let Some(default_path) = app_default_icon_paths.get(name) {
+                let icon = cache.get_or_extract(default_path);
+                if !icon.is_empty() {
+                    result.insert(name.clone(), icon);
+                    continue;
+                }
+            }
+
+            let icon = cache.get_or_extract(exe_path);
+            if !icon.is_empty() {
+                result.insert(name.clone(), icon);
+            }
+        }
+
+        result
     })
     .await
     .map_err(|e| e.to_string())?;
 
     Ok(map)
+}
+
+#[tauri::command]
+fn get_all_app_metadata_list(
+    db: tauri::State<Arc<Database>>,
+) -> Result<Vec<AppMetadataItem>, String> {
+    db.get_all_app_metadata_list()
+}
+
+#[tauri::command]
+fn set_app_display_name(
+    app_name: String,
+    display_name: Option<String>,
+    db: tauri::State<Arc<Database>>,
+) -> Result<(), String> {
+    db.set_app_display_name(&app_name, display_name.as_deref())
+}
+
+#[tauri::command]
+fn set_app_custom_icon(
+    app_name: String,
+    custom_icon_path: Option<String>,
+    db: tauri::State<Arc<Database>>,
+) -> Result<(), String> {
+    db.set_app_custom_icon(&app_name, custom_icon_path.as_deref())
+}
+
+#[tauri::command]
+fn reset_app_display_name(
+    app_name: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<(), String> {
+    db.reset_app_display_name(&app_name)
+}
+
+#[tauri::command]
+fn reset_app_custom_icon(
+    app_name: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<(), String> {
+    db.reset_app_custom_icon(&app_name)
+}
+
+#[tauri::command]
+fn delete_records_by_app(
+    app_name: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<usize, String> {
+    db.delete_records_by_app(&app_name)
+}
+
+#[tauri::command]
+fn rename_app(
+    old_name: String,
+    new_name: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<(), String> {
+    db.rename_app(&old_name, &new_name)
+}
+
+#[tauri::command]
+fn get_app_display_names(db: tauri::State<Arc<Database>>) -> Result<std::collections::HashMap<String, String>, String> {
+    db.get_app_display_names()
 }
 
 pub fn run() {
@@ -201,6 +320,14 @@ pub fn run() {
             get_records_range,
             get_record_count,
             import_records_batch,
+            get_all_app_metadata_list,
+            set_app_display_name,
+            set_app_custom_icon,
+            reset_app_display_name,
+            reset_app_custom_icon,
+            delete_records_by_app,
+            rename_app,
+            get_app_display_names,
             tray::update_tray_menu,
             update_window_theme,
             get_today_total_seconds
