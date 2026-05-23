@@ -74,3 +74,13 @@ export interface DailyAppBreakdown {
 }
 
 export type ViewMode = "daily" | "weekly" | "monthly" | "custom";
+
+export interface AppMetadataItem {
+  app_name: string;
+  app_path: string | null;
+  display_name: string | null;
+  custom_icon_path: string | null;
+  default_icon_path: string | null;
+  total_seconds: number;
+  record_count: number;
+}

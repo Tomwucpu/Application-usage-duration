@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
-import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown, UsageRecord, ViewMode, ImportBatchResult, ImportRecord } from "../types";
+import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown, UsageRecord, ViewMode, ImportBatchResult, ImportRecord, AppMetadataItem } from "../types";
 
 const shouldLogBaseline = typeof location !== "undefined" && location.hostname === "localhost";
 
@@ -82,6 +82,39 @@ export const api = {
     const res = await invoke<ImportBatchResult>("import_records_batch", { records });
     return res;
   },
+  getAppMetadataList: async () => {
+    const t0 = performance.now();
+    const res = await invoke<AppMetadataItem[]>("get_all_app_metadata_list");
+    const t1 = Math.round(performance.now() - t0);
+    try {
+      logBaseline(`[baseline] get_all_app_metadata_list ${t1}ms size=${JSON.stringify(res).length}`);
+    } catch {
+      logBaseline(`[baseline] get_all_app_metadata_list ${t1}ms`);
+    }
+    return res;
+  },
+  setAppDisplayName: async (appName: string, displayName: string | null) => {
+    await invoke<void>("set_app_display_name", { appName, displayName });
+  },
+  setAppCustomIcon: async (appName: string, customIconPath: string | null) => {
+    await invoke<void>("set_app_custom_icon", { appName, customIconPath });
+  },
+  resetAppDisplayName: async (appName: string) => {
+    await invoke<void>("reset_app_display_name", { appName });
+  },
+  resetAppCustomIcon: async (appName: string) => {
+    await invoke<void>("reset_app_custom_icon", { appName });
+  },
+  deleteRecordsByApp: async (appName: string) => {
+    await invoke<number>("delete_records_by_app", { appName });
+  },
+  renameApp: async (oldName: string, newName: string) => {
+    await invoke<void>("rename_app", { oldName, newName });
+  },
+  getAppDisplayNames: async () => {
+    const res = await invoke<Record<string, string>>("get_app_display_names");
+    return res;
+  },
 };
 
 type TabId = "dashboard" | "breakdown";
@@ -104,6 +137,7 @@ interface Store {
   customStartDate: string | null;
   customEndDate: string | null;
   appIcons: Record<string, string>;
+  displayNames: Record<string, string>;
   autoStartEnabled: boolean;
   init: () => Promise<() => void>;
   setDate: (date: string) => Promise<void>;
@@ -165,6 +199,7 @@ export const useStore = create<Store>((set, get) => ({
   customStartDate: null,
   customEndDate: null,
   appIcons: {},
+  displayNames: {},
   autoStartEnabled: false,
 
   init: async () => {
@@ -329,9 +364,16 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
 
-    const icons = await api.getAllAppIcons();
+    const [icons, names] = await Promise.all([
+      api.getAllAppIcons(),
+      api.getAppDisplayNames(),
+    ]);
+
     if (icons && Object.keys(icons).length > 0) {
       set({ appIcons: { ...state.appIcons, ...icons } });
+    }
+    if (names && Object.keys(names).length > 0) {
+      set({ displayNames: { ...state.displayNames, ...names } });
     }
   },
 
