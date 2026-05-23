@@ -2,6 +2,7 @@ import { useT } from "../../i18n";
 import type { Locale } from "../../i18n";
 import { useStore } from "../../stores/useStore";
 import { CHART_COLORS } from "../../themes/colors";
+import { getDisplayName } from "../AppNames";
 
 import type { AppSummary } from "../../types";
 
@@ -58,7 +59,7 @@ export function AppRanking({ apps, totalSeconds, loading }: Props) {
           const pct = totalSeconds > 0
             ? Math.round((app.total_seconds / totalSeconds) * 100)
             : 0;
-          const displayName = app.app_name;
+          const displayName = getDisplayName(app.app_name);
 
           return (
             <div key={app.app_name} className="flex items-center gap-4 group">

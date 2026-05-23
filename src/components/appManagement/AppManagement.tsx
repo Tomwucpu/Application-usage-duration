@@ -10,7 +10,7 @@ export function AppManagement() {
   const appIcons = useStore((s) => s.appIcons);
   const ensureAppIconsLoaded = useStore((s) => s.ensureAppIconsLoaded);
   const [data, setData] = useState<AppMetadataItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const toastTimerRef = useRef<number[]>([]);
@@ -39,7 +39,6 @@ export function AppManagement() {
   };
 
   const fetchData = async () => {
-    setLoading(true);
     try {
       const [list] = await Promise.all([
         api.getAppMetadataList(),
@@ -49,7 +48,7 @@ export function AppManagement() {
     } catch {
       pushToast("error", t("appManagement.saveFailed"));
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -59,7 +58,7 @@ export function AppManagement() {
   }, []);
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="">
       <ToastStack messages={toasts} onClose={removeToast} />
       <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-6 shadow-sm dark:shadow-none">
         <h2 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-4">
@@ -87,7 +86,7 @@ export function AppManagement() {
           />
         </div>
 
-        {loading ? (
+        {initialLoading ? (
           <div className="text-center text-slate-500 py-12">{t("loading")}</div>
         ) : (
           <AppTable

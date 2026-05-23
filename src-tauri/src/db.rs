@@ -667,6 +667,14 @@ impl Database {
                 params![app_name],
             )
             .map_err(|e| e.to_string())?;
+        let _ = conn.execute(
+            "DELETE FROM app_metadata WHERE app_name = ?1",
+            params![app_name],
+        );
+
+        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
+        *cache = None;
+
         Ok(deleted)
     }
 

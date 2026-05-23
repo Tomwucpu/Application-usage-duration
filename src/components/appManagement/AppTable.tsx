@@ -77,8 +77,8 @@ function EditableCell({ value, placeholder, onSave, onReset, showReset }: Editab
     <div className="flex items-center gap-2 group min-w-0">
       <span
         onClick={handleStartEdit}
-        title={placeholder}
-        className={`cursor-pointer truncate ${value ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-500 italic text-xs"}`}
+        title={value || placeholder}
+        className={`cursor-pointer truncate block ${value ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-500 italic text-xs"}`}
       >
         {value || placeholder}
       </span>
@@ -131,7 +131,7 @@ export function AppTable({ data, search, t, pushToast, onRefresh, appIcons }: Ap
     const sorted = [...filtered];
     const dir = sortDir === "asc" ? 1 : -1;
     sorted.sort((a, b) => {
-      if (sortKey === "app_name") {
+      if (sortKey === "display_name") {
         const nameA = a.display_name || a.app_name;
         const nameB = b.display_name || b.app_name;
         return nameA.localeCompare(nameB) * dir;
@@ -188,6 +188,17 @@ export function AppTable({ data, search, t, pushToast, onRefresh, appIcons }: Ap
     }
   };
 
+  const handleResetDisplayName = async (appName: string) => {
+    try {
+      await api.resetAppDisplayName(appName);
+      await onRefresh();
+      pushToast("success", t("appManagement.saveSuccess"));
+    } catch {
+      pushToast("error", t("appManagement.saveFailed"));
+      throw new Error("save failed");
+    }
+  };
+
   const handleSaveCustomIcon = async (appName: string, customIconPath: string) => {
     try {
       await api.setAppCustomIcon(appName, customIconPath || null);
@@ -215,42 +226,43 @@ export function AppTable({ data, search, t, pushToast, onRefresh, appIcons }: Ap
       },
     },
     {
-      key: "app_name",
+      key: "display_name",
       header: t("appManagement.appName"),
       sortable: true,
-      render: (item) => (
-        <span className="text-slate-900 dark:text-slate-100 font-medium">
-          {item.app_name}
-        </span>
-      ),
-    },
-    {
-      key: "display_name",
-      header: t("appManagement.displayName"),
-      sortable: false,
-      render: (item) => (
-        <EditableCell
-          value={item.display_name || ""}
-          placeholder={t("appManagement.clickToEdit")}
-          showReset={!!item.display_name}
-          onSave={(val) => handleSaveDisplayName(item.app_name, val)}
-          onReset={() => setConfirm({ type: "resetName", appName: item.app_name })}
-        />
-      ),
+      width: "180px",
+      render: (item) => {
+        const displayValue = item.display_name || item.app_name;
+        return (
+          <EditableCell
+            value={displayValue}
+            placeholder={t("appManagement.clickToEdit")}
+            showReset={!!item.display_name}
+            onSave={(val) => {
+              if (val === item.app_name) return handleResetDisplayName(item.app_name);
+              return handleSaveDisplayName(item.app_name, val);
+            }}
+            onReset={() => setConfirm({ type: "resetName", appName: item.app_name })}
+          />
+        );
+      },
     },
     {
       key: "icon_path",
       header: t("appManagement.iconPath"),
       sortable: false,
-      render: (item) => (
-        <EditableCell
-          value={item.custom_icon_path || item.default_icon_path || item.app_path || ""}
-          placeholder={t("appManagement.clickToEdit")}
-          showReset={!!item.custom_icon_path}
-          onSave={(val) => handleSaveCustomIcon(item.app_name, val)}
-          onReset={() => setConfirm({ type: "resetIcon", appName: item.app_name })}
-        />
-      ),
+      width: "200px",
+      render: (item) => {
+        const iconPath = item.custom_icon_path || item.default_icon_path || item.app_path || "";
+        return (
+          <EditableCell
+            value={iconPath}
+            placeholder={t("appManagement.clickToEdit")}
+            showReset={!!item.custom_icon_path}
+            onSave={(val) => handleSaveCustomIcon(item.app_name, val)}
+            onReset={() => setConfirm({ type: "resetIcon", appName: item.app_name })}
+          />
+        );
+      },
     },
     {
       key: "total_seconds",

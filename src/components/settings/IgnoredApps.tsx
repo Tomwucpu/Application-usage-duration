@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useStore, api } from "../../stores/useStore";
+import { getDisplayName } from "../AppNames";
 
 interface IgnoredAppsProps {
   t: (key: string) => string;
@@ -84,7 +85,9 @@ export function IgnoredApps({ t }: IgnoredAppsProps) {
             : "max-h-0 opacity-0 -translate-y-1 pointer-events-none"
         }`}
       >
-        {appNames.map((n) => (
+        {appNames.map((n) => {
+          const d = getDisplayName(n);
+          return (
           <label
             key={n}
             className="flex items-center gap-4 rounded px-2 py-1 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-700"
@@ -93,18 +96,19 @@ export function IgnoredApps({ t }: IgnoredAppsProps) {
               type="checkbox"
               checked={ignored.includes(n)}
               onChange={() => toggleIgnored(n)}
-              aria-label={`Ignore ${n}`}
+              aria-label={`Ignore ${d}`}
             />
             {appIcons[n] ? (
-              <img src={`data:image/png;base64,${appIcons[n]}`} alt={n} className="w-5 h-5 rounded-md mt-0.5 flex-shrink-0" />
+              <img src={`data:image/png;base64,${appIcons[n]}`} alt={d} className="w-5 h-5 rounded-md mt-0.5 flex-shrink-0" />
             ) : (
               <div className="w-5 h-5 rounded-md flex-shrink-0 bg-slate-700 flex items-center justify-center text-[10px] text-slate-400 font-bold">
-                {n.charAt(0).toUpperCase()}
+                {d.charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="text-sm">{n}</span>
+            <span className="text-sm">{d}</span>
           </label>
-        ))}
+        );
+        })}
       </div>
     </div>
   );

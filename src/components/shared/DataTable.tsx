@@ -70,7 +70,7 @@ export function DataTable<T>({
   return (
     <div className={`space-y-3 ${className}`}>
       <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-[#3f3f41]">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm table-fixed">
           <thead>
             <tr className="bg-slate-50 dark:bg-[#1d1d20] border-b border-slate-200 dark:border-[#3f3f41]">
               {columns.map((col) => (

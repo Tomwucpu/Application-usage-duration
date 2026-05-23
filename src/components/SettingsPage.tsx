@@ -110,7 +110,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="">
       <ToastStack messages={toasts} onClose={removeToast} />
       <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-6 shadow-sm dark:shadow-none">
         <h2 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-6">{t("settings.title")}</h2>

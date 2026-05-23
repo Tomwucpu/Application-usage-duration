@@ -21,11 +21,12 @@ src/components/
 ├── Dashboard.tsx              (page, lazy-loaded)
 ├── SettingsPage.tsx           (page, lazy-loaded)
 ├── StackedBarChart.tsx        (page, lazy-loaded from Dashboard)
-├── AppNames.ts                (getDisplayName utility)
+├── AppNames.ts                (getDisplayName / setDisplayNames — global alias resolver)
+├── appManagement/             AppManagement.tsx (page, lazy-loaded), AppTable.tsx
 ├── dashboard/                 AppRanking.tsx, DatePicker.tsx
 ├── breakdown/                 DateRangePicker.tsx
-├── settings/                  DataIO.tsx, IdleThreshold.tsx, IgnoredApps.tsx, ImportDialog.tsx, LanguageSwitcher.tsx, Retention.tsx
-└── shared/                    InfoTooltip.tsx, ToastStack.tsx
+├── settings/                  DataIO.tsx, IdleThreshold.tsx, IgnoredApps.tsx, ImportDialog.tsx, LanguageSwitcher.tsx, Retention.tsx, UpdateChecker.tsx
+└── shared/                    ConfirmDialog.tsx, DataTable.tsx, InfoTooltip.tsx, ToastStack.tsx
 ```
 
 ## Frontend gotchas
@@ -57,7 +58,7 @@ All three produce off-by-one near midnight. `Dashboard.tsx` defines its own safe
 `loadRangeBreakdown` in `useStore.ts` only skips fetch when `rangeBreakdown.length > 0` (alongside range match). An empty-result range is NOT cached and will refetch on every invocation. Check `rangeBreakdownRange` (non-null = loaded) to distinguish "loading" from "loaded but empty".
 
 ### `ensureAppIconsLoaded` stale-closure race
-`useStore.ts:330-332` reads `state.appIcons` via `get()`, awaits `api.getAllAppIcons()`, then shallow-merges with the snapshot. If called concurrently (e.g. `refresh()` + `ImportDialog` post-import), the later `set()` can overwrite icons fetched by an earlier call. Low risk in practice but worth noting.
+Reads `state.appIcons` via `get()`, awaits `Promise.all([api.getAllAppIcons(), api.getAppDisplayNames()])`, then shallow-merges with the snapshot. If called concurrently (e.g. `refresh()` + `ImportDialog` post-import), the later `set()` can overwrite icons fetched by an earlier call. Low risk in practice but worth noting.
 
 ### Chart behavior
 - `StackedBarChart` `customDates` generates ALL dates between start/end, not just dates found in data. Zero-value bars render for empty days.
@@ -71,7 +72,7 @@ All three produce off-by-one near midnight. `Dashboard.tsx` defines its own safe
 Controlled by `dark` class on `document.documentElement`. Store sets `localStorage("theme")` + toggles classList. Tailwind `darkMode: "class"`.
 
 ### Routing
-No React Router. `App.tsx` uses `useState<View>` ("dashboard" | "settings"). All "page" components are `React.lazy()`.
+No React Router. `App.tsx` uses `useState<View>` ("dashboard" | "settings" | "appManagement"). All "page" components are `React.lazy()`.
 
 ### i18n type casting
 The `useT()` hook returns `t: (key: keyof Translations) => string` (strict literal keys). When passing `t` to a child component that declares `t: (key: string) => string`, cast at the call site: `t={t as (key: string) => string}`. Otherwise strict mode rejects the assignment due to parameter contravariance.
@@ -82,6 +83,33 @@ Note: `Translations` is `typeof zhCN` — `zh-CN.json` defines the canonical key
 - `validateRecord` checks 6 rules (required app_name, parseable start/end_time, non-negative duration_seconds, YYYY-MM-DD date, hour 0-23). All I/O is frontend-only until `api.importRecordsBatch()`.
 - After successful import, `ImportDialog` calls `useStore.getState().ensureAppIconsLoaded(true)` to force-refresh icons for imported apps.
 - `api.importRecordsBatch` expects `ImportRecord[]` (no `id` field) — the frontend strips `id` during parsing.
+
+### AppManagement refresh — CRITICAL: must NOT unmount AppTable
+`AppManagement.tsx` uses `initialLoading` (not `loading`). The initial mount shows a loading overlay and `AppTable` is not rendered. Once data is fetched, `initialLoading` is permanently `false` and `AppTable` stays mounted. On subsequent refreshes (edit alias, delete, reset), `fetchData` updates `data` but never unmounts `AppTable`.
+
+If you change this to toggle a `loading` state, `AppTable` will unmount/remount on every refresh, resetting all internal state (page number, sort order, page size).
+
+**Related:** `DataTable.tsx` internal `currentPage` state is preserved across `data` prop changes and only clamps via `safePage = Math.min(currentPage, totalPages)` when data shrinks. Changes to `pageSize` from the parent's `onPageSizeChange` also preserve the current page.
+
+### App display name — global alias resolver
+`AppNames.ts` exposes `getDisplayName(appName)` which reads a module-level `_names` cache populated by `setDisplayNames(names)`. `App.tsx` subscribes to `useStore.displayNames` and calls `setDisplayNames()` on change. This means:
+- `AppRanking.tsx`, `StackedBarChart.tsx`, `IgnoredApps.tsx` all import and use `getDisplayName()` for visible app name rendering
+- The display name alias is NOT stored locally — it comes from the store, which fetches it from `app_metadata.display_name` on the Rust side
+- `ensureAppIconsLoaded` now also fetches display names in parallel via `api.getAppDisplayNames()`
+
+### AppTable inline editing
+- `EditableCell` component handles click-to-edit for both display_name and icon_path columns
+- On save failure, the cell stays in editing mode (doesn't revert or close)
+- When the user edits display_name to match the original `app_name`, `handleSaveDisplayName` automatically calls `resetAppDisplayName` instead (avoids storing redundant alias)
+- The "app_name" column in the table shows `display_name || app_name` as default value
+- Reset button (×) only appears on hover when a custom value is set
+
+### AppTable search + sort + pagination
+- Search filters by `app_name.toLowerCase().includes(q) || display_name.toLowerCase().includes(q)`
+- Sort by display_name sorts by `display_name || app_name` (localeCompare)
+- Sort by total_seconds sorts numerically
+- Pagination: default 10/page, options 10/20/30, controlled by parent `pageSize` state
+- Empty text differs: `noResults` when search active, `noData` when list is empty
 
 ## Rust / Tauri gotchas
 
@@ -114,6 +142,18 @@ After `COMMIT`, `drop(conn)` before calling `upsert_app_metadata`. `upsert_app_m
 ### App metadata population
 `import_records_batch` writes `app_metadata` for imported apps with non-null `app_path`. This allows `get_all_app_icons` to find and extract icons. Icons only appear if the `app_path` exists on the current machine (same install path as exporting machine).
 
+### App metadata columns — new fields
+`app_metadata` table now has 5 columns: `app_name` (PK), `app_path` (exe path for icon extraction), `display_name` (user alias, nullable), `custom_icon_path` (user override icon path, nullable), `default_icon_path` (auto-extracted icon path, nullable). Migration via `ALTER TABLE ADD COLUMN` in `Database::new()`.
+
+### Icon resolution priority
+`get_all_app_icons` resolves icons in order: `custom_icon_path` > `default_icon_path` > exe extraction from `app_path`. Each path is passed through `IconCache.get_or_extract()` which handles base64 PNG caching in memory (max 200).
+
+### `delete_records_by_app` — full cleanup
+Deletes from BOTH `usage_records` AND `app_metadata` for the given app. Also invalidates the metadata cache. After deletion, the app disappears from `get_all_app_metadata_list` entirely. It will be re-inserted into `app_metadata` via `upsert_app_metadata` if tracked again.
+
+### App management Tauri commands
+Commands added: `get_all_app_metadata_list`, `set_app_display_name`, `set_app_custom_icon`, `reset_app_display_name`, `reset_app_custom_icon`, `delete_records_by_app`, `rename_app`, `get_app_display_names`. All accept `app_name: String` as primary param. None interact with tracker state (safe for db lock ordering).
+
 ### Rust tests
 Only `tracker.rs` has tests (5 tests for `should_ignore_app_from_settings`). No DB-level tests — `cargo test` does not exercise SQLite logic.
 
@@ -125,6 +165,7 @@ Single workflow (`release.yml`), triggered on `v*` tags only. `windows-latest` r
 
 - `tsconfig.json` strict mode ON: `noUnusedLocals`, `noUnusedParameters` both true. Unused imports/vars fail `npm run build`.
 - The `UsageRecord` interface is defined once in `src/types/index.ts` and must match the Rust struct in `db.rs`. `ImportRecord` (same fields minus `id`) mirrors Rust's `ImportRecord`.
+- The `AppMetadataItem` interface in `src/types/index.ts` must match the Rust struct in `db.rs` (fields: app_name, app_path, display_name, custom_icon_path, default_icon_path, total_seconds, record_count).
 
 ## View modes
 

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { getDisplayName } from "./AppNames";
 import {
   BarChart,
   Bar,
@@ -103,7 +104,7 @@ function buildRangeChartData(
 
   for (const item of dailyData) {
     if (!dayApps.has(item.date)) dayApps.set(item.date, new Map());
-    const name = item.app_name;
+    const name = getDisplayName(item.app_name);
     const current = dayApps.get(item.date)!.get(name) || 0;
     dayApps.get(item.date)!.set(name, current + item.total_seconds);
     appTotals.set(name, (appTotals.get(name) || 0) + item.total_seconds);
