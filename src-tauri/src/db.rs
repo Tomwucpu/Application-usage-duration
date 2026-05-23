@@ -71,6 +71,17 @@ pub struct ImportBatchResult {
     pub skipped: i32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppMetadataItem {
+    pub app_name: String,
+    pub app_path: Option<String>,
+    pub display_name: Option<String>,
+    pub custom_icon_path: Option<String>,
+    pub default_icon_path: Option<String>,
+    pub total_seconds: i64,
+    pub record_count: i64,
+}
+
 pub struct Database {
     pub conn: Mutex<Connection>,
     metadata_cache: Mutex<Option<HashMap<String, String>>>,
@@ -96,7 +107,10 @@ impl Database {
             );
             CREATE TABLE IF NOT EXISTS app_metadata (
                 app_name TEXT PRIMARY KEY,
-                app_path TEXT NOT NULL
+                app_path TEXT NOT NULL,
+                display_name TEXT,
+                custom_icon_path TEXT,
+                default_icon_path TEXT
             );
             CREATE TABLE IF NOT EXISTS settings (
                 key TEXT PRIMARY KEY,
@@ -107,6 +121,11 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_app ON usage_records(app_name, date);",
         )
         .map_err(|e| e.to_string())?;
+
+        // Migrate: add columns if missing (ignore errors if already exist)
+        let _ = conn.execute("ALTER TABLE app_metadata ADD COLUMN display_name TEXT", []);
+        let _ = conn.execute("ALTER TABLE app_metadata ADD COLUMN custom_icon_path TEXT", []);
+        let _ = conn.execute("ALTER TABLE app_metadata ADD COLUMN default_icon_path TEXT", []);
 
         Ok(Database {
             conn: Mutex::new(conn),
