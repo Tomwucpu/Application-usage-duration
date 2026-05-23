@@ -73,7 +73,7 @@ export function InfoTooltip({ children }: InfoTooltipProps) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-[11px] font-semibold leading-none text-slate-500 transition-colors hover:border-indigo-400 hover:bg-indigo-50 hover:text-indigo-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/15 dark:hover:text-indigo-400"
+        className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-slate-300 bg-slate-100 text-[11px] font-semibold leading-none text-slate-500 transition-colors dark:border-[#3f3f41] dark:bg-[#1d1d20] dark:text-[#ffffff]"
         aria-label="More information"
       >
         ?

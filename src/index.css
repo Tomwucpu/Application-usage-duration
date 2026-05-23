@@ -2,13 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Theme CSS Custom Properties
+   Sync with src/themes/colors.ts when modifying values
+   ============================================================ */
+:root {
+  --color-primary: #1170ff;
+  --color-primary-ring: #1369eb37;
+  --color-primary-ring-focus: #1369eb37;
+  --color-bg-body: #0f172a;
+  --color-bg-input: #ffffff;
+  --color-bg-input-dark: #1e293b;
+  --color-border: #e2e8f0;
+  --color-border-muted: #64748b;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748b;
+  --color-text-dim: #94a3b8;
+  --color-text-faint: #cbd5e1;
+  --color-text-inverse: #e2e8f0;
+  --color-chart-grid: #e2e8f0;
+  --color-chart-tick: #64748b;
+  --color-chart-cursor: rgba(100, 116, 139, 0.08);
+  --color-date-arrow: #475569;
+  --color-date-display: #0f172a;
+  --color-date-today: #64748b;
+  --color-date-today-disabled: #94a3b8;
+  --color-cal-month-btn: #64748b;
+  --color-cal-day-btn: #334155;
+  --color-cal-day-muted: #cbd5e1;
+  --color-cal-selected-text: #ffffff;
+  --gradient-cal-selected: #148aff;
+}
+
+.dark {
+  --color-primary: #1170ff;
+  --color-primary-ring: #1369eb37;
+  --color-primary-ring-focus: #1369eb37;
+  --color-border: #64748b;
+  --color-bg-input: #1e293b;
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #cbd5e1;
+  --color-text-dim: #94a3b8;
+  --color-text-faint: #475569;
+  --color-chart-grid: #3f3f41;
+  --color-chart-tick: #94a3b8;
+  --color-chart-cursor: rgba(148, 163, 184, 0.08);
+  --color-date-arrow: #cbd5e1;
+  --color-date-display: #f8fafc;
+  --color-date-today: #cbd5e1;
+  --color-date-today-disabled: #64748b;
+  --color-cal-month-btn: #94a3b8;
+  --color-cal-day-btn: #fafafa;
+  --color-cal-day-muted: #4b4b50;
+  --gradient-cal-selected: #148aff;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background: #0f172a;
-  color: #e2e8f0;
+  background: var(--color-bg-body);
+  color: var(--color-text-inverse);
 }
 
 #root {
@@ -22,24 +79,24 @@ input[type="radio"] {
   -moz-appearance: none;
   width: 18px;
   height: 18px;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--color-border);
   border-radius: 50%;
   cursor: pointer;
-  background: white;
+  background: var(--color-bg-input);
   position: relative;
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
 input[type="radio"]:hover {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 input[type="radio"]:checked {
-  background-color: #4f46e5;
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 input[type="radio"]:checked::after {
@@ -57,23 +114,7 @@ input[type="radio"]:checked::after {
 input[type="radio"]:focus {
   outline: none;
   ring: 2px;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
-}
-
-.dark input[type="radio"] {
-  background: #1e293b;
-  border-color: #64748b;
-}
-
-.dark input[type="radio"]:hover {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.dark input[type="radio"]:checked {
-  background-color: #6366f1;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px var(--color-primary-ring-focus);
 }
 
 /* Custom Checkbox Styles */
@@ -83,26 +124,24 @@ input[type="checkbox"] {
   -moz-appearance: none;
   width: 18px;
   height: 18px;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--color-border);
   border-radius: 4px;
   cursor: pointer;
-  background: white;
+  background: var(--color-bg-input);
   position: relative;
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
 
 input[type="checkbox"]:hover {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 input[type="checkbox"]:checked {
-  background-color: #4f46e5;
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-ring);
 }
 
 input[type="checkbox"]:checked::after {
@@ -119,23 +158,7 @@ input[type="checkbox"]:checked::after {
 
 input[type="checkbox"]:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
-}
-
-.dark input[type="checkbox"] {
-  background: #1e293b;
-  border-color: #64748b;
-}
-
-.dark input[type="checkbox"]:hover {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.dark input[type="checkbox"]:checked {
-  background-color: #6366f1;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  box-shadow: 0 0 0 3px var(--color-primary-ring-focus);
 }
 
 /* Custom Number Input Styles - Hide Spinners */
@@ -172,11 +195,7 @@ input[type="number"]::-webkit-inner-spin-button {
   align-items: center;
   justify-content: center;
   border-radius: 0.875rem;
-  color: #475569;
-}
-
-.dark .date-strip-arrow {
-  color: #cbd5e1;
+  color: var(--color-date-arrow);
 }
 
 .date-strip-display {
@@ -185,12 +204,8 @@ input[type="number"]::-webkit-inner-spin-button {
   font-size: 1rem;
   font-weight: 600;
   line-height: 2.5rem;
-  color: #0f172a;
+  color: var(--color-date-display);
   letter-spacing: -0.01em;
-}
-
-.dark .date-strip-display {
-  color: #f8fafc;
 }
 
 .date-strip-today {
@@ -201,20 +216,12 @@ input[type="number"]::-webkit-inner-spin-button {
   border-radius: 0.875rem;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--color-date-today);
 }
 
 .date-strip-today:disabled {
-  color: #94a3b8;
+  color: var(--color-date-today-disabled);
   opacity: 0.7;
-}
-
-.dark .date-strip-today {
-  color: #cbd5e1;
-}
-
-.dark .date-strip-today:disabled {
-  color: #64748b;
 }
 
 .calendar-month-button {
@@ -224,11 +231,7 @@ input[type="number"]::-webkit-inner-spin-button {
   align-items: center;
   justify-content: center;
   border-radius: 0.875rem;
-  color: #64748b;
-}
-
-.dark .calendar-month-button {
-  color: #94a3b8;
+  color: var(--color-cal-month-btn);
 }
 
 .calendar-day-button {
@@ -240,32 +243,21 @@ input[type="number"]::-webkit-inner-spin-button {
   border-radius: 1rem;
   font-size: 0.875rem;
   font-weight: 700;
-  color: #334155;
+  color: var(--color-cal-day-btn);
 }
 
 .calendar-day-muted {
-  color: #cbd5e1;
+  color: var(--color-cal-day-muted);
 }
 
 .calendar-day-selected {
-  color: #ffffff;
-  background: linear-gradient(135deg, #4f46e5, #0ea5e9);
-  box-shadow: 0 12px 24px rgba(79, 70, 229, 0.24);
+  color: var(--color-cal-selected-text);
+  background: var(--gradient-cal-selected);
 }
 
-.dark .calendar-day-button {
-  color: #cbd5e1;
-}
-
-.dark .calendar-day-muted {
-  color: #475569;
-}
-
-.dark .calendar-day-selected,
 .dark .calendar-day-selected:hover {
-  color: #ffffff;
-  background: linear-gradient(135deg, #6366f1, #0ea5e9);
-  box-shadow: 0 14px 28px rgba(14, 165, 233, 0.18);
+  color: var(--color-cal-selected-text);
+  background: var(--gradient-cal-selected);
 }
 
 .date-calendar-popover {

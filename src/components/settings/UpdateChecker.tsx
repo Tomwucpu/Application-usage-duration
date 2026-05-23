@@ -110,7 +110,7 @@ export function UpdateChecker({ t, pushToast }: UpdateCheckerProps) {
     state.kind === "available" ? handleDownload : handleCheck;
 
   return (
-    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+    <div className="dark:border-slate-800">
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
           {t("settings.update.title")}
@@ -123,7 +123,7 @@ export function UpdateChecker({ t, pushToast }: UpdateCheckerProps) {
         <button
           onClick={(e) => { e.preventDefault(); buttonAction(); }}
           disabled={buttonDisabled}
-          className="px-3 py-1.5 rounded-md text-sm font-medium bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-60 text-white transition-colors"
+          className="px-3 py-1.5 rounded-md text-sm font-medium bg-[#1170ff] hover:bg-[#1170ff] hover:bg-opacity-90 active:bg-[#1170ff] disabled:opacity-60 text-white transition-colors"
         >
           {buttonLabel}
         </button>
@@ -153,7 +153,7 @@ export function UpdateChecker({ t, pushToast }: UpdateCheckerProps) {
               href={state.html_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+              className="text-xs text-[#1170ff] dark:text-[#1170ff] hover:underline"
             >
               {t("settings.update.download_page")}
             </a>

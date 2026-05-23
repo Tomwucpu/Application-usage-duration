@@ -66,7 +66,7 @@ export function IgnoredApps({ t }: IgnoredAppsProps) {
           aria-checked={ignoredEnabled}
           onClick={toggleIgnoredEnabled}
           className={`relative inline-flex h-5 w-[38px] items-center rounded-full transition-colors ${
-            ignoredEnabled ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
+            ignoredEnabled ? "bg-[#1170ff]" : "bg-[#1170ff] dark:bg-slate-700"
           }`}
           aria-label={t("settings.ignored.title")}
         >

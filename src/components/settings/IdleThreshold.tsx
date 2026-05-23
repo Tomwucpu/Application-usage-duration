@@ -79,10 +79,10 @@ export function IdleThreshold({ t, pushToast }: IdleThresholdProps) {
     : t(idlePresets.find((p) => p.seconds === value)?.key ?? "settings.idle.5min");
 
   return (
-    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+    <div className="pt-4 border-t border-slate-100 dark:border-[#3f3f41]">
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-1">
-          <svg className="w-4 h-4 text-indigo-600 dark:text-indigo-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg className="w-4 h-4 text-[#1369eb] dark:text-[#1369eb]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
@@ -94,7 +94,7 @@ export function IdleThreshold({ t, pushToast }: IdleThresholdProps) {
       <div ref={dropdownRef} className="relative">
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          className="flex items-center gap-1.5 min-w-[170px] justify-between text-sm bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+          className="flex items-center gap-1.5 min-w-[170px] justify-between text-sm bg-slate-100 dark:bg-[#1d1d20] border border-slate-200 dark:border-[#3f3f41] rounded-md px-3 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1369eb] cursor-pointer"
         >
           <span>{displayLabel}</span>
           <svg className={`w-3.5 h-3.5 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -102,25 +102,25 @@ export function IdleThreshold({ t, pushToast }: IdleThresholdProps) {
           </svg>
         </button>
         {dropdownOpen && (
-          <div className="absolute left-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg py-0.5 z-10 min-w-[170px]">
+          <div className="absolute left-0 top-full mt-1 bg-white dark:bg-[#1d1d20] border border-slate-200 dark:border-[#3f3f41] rounded-md shadow-lg p-1 z-10 min-w-[170px]">
             {idlePresets.map((preset) => (
               <button
                 key={preset.seconds}
                 onClick={() => selectPreset(preset.seconds)}
-                className={`block w-full text-left px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 ${
+                className={`block w-full text-left px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg ${
                   value === preset.seconds && !customOpen
-                    ? "text-indigo-600 dark:text-indigo-400 font-medium"
+                    ? "text-[#ffffff] bg-[#1369eb] dark:text-[#ffffff] dark:bg-[#1369ea] font-medium"
                     : "text-slate-700 dark:text-slate-300"
                 }`}
               >
                 {t(preset.key)}
               </button>
             ))}
-            <div className="border-t border-slate-100 dark:border-slate-700 my-0.5" />
+            <div className="border-t border-slate-100 dark:border-[#3f3f41] my-1" />
             <button
               onClick={selectCustom}
-              className={`block w-full text-left px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 ${
-                customOpen ? "text-indigo-600 dark:text-indigo-400 font-medium" : "text-slate-700 dark:text-slate-300"
+              className={`block w-full text-left mt-0.5 px-3 py-1.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg ${
+                customOpen ? "text-[#ffffff] bg-[#1369eb] dark:text-[#ffffff] dark:bg-[#1369ea] font-medium" : "text-slate-700 dark:text-slate-300"
               }`}
             >
               {t("settings.idle.custom")}
@@ -130,21 +130,21 @@ export function IdleThreshold({ t, pushToast }: IdleThresholdProps) {
       </div>
 
       {customOpen && (
-        <div className="mt-3 p-3 rounded-md bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-200 dark:border-indigo-500/20 flex items-center gap-2">
+        <div className="mt-3 p-3 rounded-md bg-[#f8fafc] dark:bg-[#1d1d20] border border-[#e2e8f0] dark:border-[#3f3f41] flex items-center gap-2">
           <input
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
             value={customMinutes}
             onChange={(e) => setCustomMinutes(e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""))}
-            className="w-16 px-2 py-1.5 rounded border border-indigo-300 dark:border-indigo-500 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm"
+            className="w-16 px-2 py-1.5 rounded border border-[#e2e8f0] dark:border-[#3f3f41] bg-white dark:bg-[#27272b] text-slate-900 dark:text-slate-100 text-sm"
             aria-label={t("settings.idle.custom")}
           />
-          <span className="text-sm text-indigo-900 dark:text-indigo-300">{t("settings.idle.minutes")}</span>
+          <span className="text-sm text-slate-700 dark:text-slate-300">{t("settings.idle.minutes")}</span>
           <button
             type="button"
             onClick={saveCustom}
-            className="ml-auto px-3 py-1.5 rounded-md text-sm font-medium bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white transition-colors cursor-pointer"
+            className="ml-auto px-3 py-1.5 rounded-md text-sm font-medium bg-[#1369eb] hover:bg-[#1369eb] hover:bg-opacity-90 active:bg-[#1369eb] disabled:opacity-60 text-white transition-colors cursor-pointer"
           >
             {t("settings.idle.save")}
           </button>

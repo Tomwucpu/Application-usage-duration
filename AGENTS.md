@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Tauri 2 desktop app — Windows foreground app usage tracker with React 18 + Recharts + Zustand frontend and Rust + SQLite backend. See `CLAUDE.md` for architecture basics; this file covers gotchas and conventions agents frequently miss.
+Tauri 2 desktop app — Windows foreground app usage tracker with React 18 + Recharts + Zustand frontend and Rust + SQLite backend. See `CLAUDE.md` for architecture basics (ignore its stale claim that AFK threshold is hardcoded — it's configurable, see Settings table below); this file covers gotchas and conventions agents frequently miss.
 
 ## Commands
 
@@ -57,7 +57,7 @@ Both `Dashboard.tsx` and `StackedBarChart.tsx` define their own `fmtLocalDate` h
 Controlled by `dark` class on `document.documentElement`. Store sets `localStorage("theme")` + toggles classList. Tailwind `darkMode: "class"`.
 
 ### Routing
-No React Router. `App.tsx` uses `useState<TabId>` ("dashboard" | "settings"). All "page" components are `React.lazy()`.
+No React Router. `App.tsx` uses `useState<View>` ("dashboard" | "settings"). All "page" components are `React.lazy()`.
 
 ### API layer
 `useStore.ts` exports a named `api` object wrapping `invoke` calls with baseline performance logging (enabled only on `localhost`). Use `api.getSetting`/`api.setSetting` instead of raw `invoke` for settings.

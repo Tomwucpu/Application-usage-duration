@@ -31,10 +31,11 @@ function LocaleSelect() {
   const selected = localeOptions.find((o) => o.value === locale)!;
 
   return (
+    // 下拉菜单组件
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 min-w-[100px] justify-between text-sm bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-3 py-1.5 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+        className="flex items-center gap-1.5 min-w-[100px] justify-between text-sm bg-slate-100 dark:bg-[#1d1d20] border border-slate-200 dark:border-[#3f3f41] rounded-md px-3 py-1.5 text-[#0f172a] dark:text-[#ffffff] dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1369ea] cursor-pointer"
       >
         <span>{t(selected.labelKey)}</span>
         <svg
@@ -51,7 +52,7 @@ function LocaleSelect() {
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md shadow-lg py-0.5 z-10 min-w-full">
+        <div className="absolute right-0 top-full mt-1 p-1 bg-[#f1f5f9] dark:bg-[#1d1d20] border border-slate-200 dark:border-[#3f3f41] rounded-md shadow-lg z-10 min-w-full">
           {localeOptions.map((opt) => (
             <button
               key={opt.value}
@@ -59,10 +60,10 @@ function LocaleSelect() {
                 setLocale(opt.value);
                 setOpen(false);
               }}
-              className={`w-full text-left px-3 py-1.5 text-sm ${
+              className={`w-full text-left mb-0.5 px-3 py-1.5 text-sm rounded-lg ${
                 locale === opt.value
-                  ? "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10"
-                  : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                  ? "text-[#ffffff] dark:text-[#ffffff] bg-[#1369ea] dark:bg-[#1369ea]"
+                  : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#262c36]"
               }`}
             >
               {t(opt.labelKey)}
@@ -111,7 +112,7 @@ export function SettingsPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <ToastStack messages={toasts} onClose={removeToast} />
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-6 shadow-sm dark:shadow-none">
+      <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-6 shadow-sm dark:shadow-none">
         <h2 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-6">{t("settings.title")}</h2>
 
         <div className="space-y-6">
@@ -120,7 +121,7 @@ export function SettingsPage() {
             <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
               {t("settings.theme")}
             </span>
-            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-md">
+            <div className="flex bg-slate-100 dark:bg-[#1d1d20] border border-slate-200 dark:border-[#3f3f41] p-1 rounded-md">
               <button
                 className={`px-3 py-1 text-sm rounded ${theme === "light" ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400"}`}
                 onClick={() => setTheme("light")}
@@ -154,7 +155,7 @@ export function SettingsPage() {
               aria-checked={autoStartEnabled}
               onClick={toggleAutoStart}
               className={`relative inline-flex h-5 w-[38px] items-center rounded-full transition-colors ${
-                autoStartEnabled ? "bg-indigo-600" : "bg-slate-300 dark:bg-slate-700"
+                autoStartEnabled ? "bg-[#1170ff]" : "bg-slate-300 dark:bg-slate-700"
               }`}
             >
               <span

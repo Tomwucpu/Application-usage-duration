@@ -180,7 +180,9 @@ export function DateRangePicker({ startDate, endDate, onChange, locale }: DateRa
   }, [month]);
 
   return (
+    /* 日期范围选择组件 */
     <div ref={containerRef} className="relative">
+      {/* 预设范围按钮和打开日历的按钮 */}
       <div className="flex items-center gap-2 flex-wrap">
         {presets.map((preset) => {
           const isActive = startDate === preset.start && endDate === preset.end;
@@ -189,10 +191,10 @@ export function DateRangePicker({ startDate, endDate, onChange, locale }: DateRa
               key={preset.label}
               type="button"
               onClick={() => handlePreset(preset.start, preset.end)}
-              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors ${
+              className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors border ${
                 isActive
-                  ? "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300"
+                  ? "bg-[#0060df] dark:bg-[#0060df] border-[#0060df] dark:border-[#0060df] text-[#ffffff] dark:text-[#ffffff]"
+                  : "border-[#e4e4e7] dark:border-[#3f3f41] text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#1d1d20] hover:text-slate-700 dark:hover:text-slate-300"
               }`}
             >
               {preset.label}
@@ -204,8 +206,8 @@ export function DateRangePicker({ startDate, endDate, onChange, locale }: DateRa
           onClick={openPopover}
           className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors border ${
             open
-              ? "border-indigo-300 dark:border-indigo-600 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
-              : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              ? "border-[#0060df] bg-[#0060df] dark:border-[#0060df] dark:bg-[#0060df] text-[#ffffff] dark:text-[#ffffff]"
+              : "border-slate-200 dark:border-[#3f3f41] text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#1d1d20]"
           }`}
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -222,7 +224,7 @@ export function DateRangePicker({ startDate, endDate, onChange, locale }: DateRa
         <div
           role="dialog"
           aria-label={locale === "zh-CN" ? "选择日期范围" : "Select date range"}
-          className="absolute left-0 top-[calc(100%+0.5rem)] z-50 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/50 dark:border-slate-700 dark:bg-slate-950 dark:shadow-black/40"
+          className="absolute left-0 top-[calc(100%+0.5rem)] z-50 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/50 dark:border-[#3f3f41] dark:bg-[#28282c] dark:shadow-black/40"
         >
           {/* Start / End date fields */}
           <div className="flex items-center gap-2.5 mb-5">
@@ -276,7 +278,7 @@ export function DateRangePicker({ startDate, endDate, onChange, locale }: DateRa
           </div>
 
           {/* Single month calendar */}
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+          <div className="border-t border-slate-100 dark:border-[#3f3f41] pt-4">
           <div className="flex justify-center">
             <div>
               <div className="flex items-center justify-between px-1 mb-2">
@@ -327,15 +329,15 @@ export function DateRangePicker({ startDate, endDate, onChange, locale }: DateRa
                       onClick={() => handleCalendarClick(date)}
                       className={`relative flex items-center justify-center h-9 rounded-lg text-[13px] transition-colors ${
                         isStart && isEnd
-                          ? "bg-indigo-600 text-white font-semibold rounded-lg z-10"
+                          ? "bg-[#148aff] text-white font-semibold rounded-lg z-10"
                           : isStart
-                          ? "bg-indigo-600 text-white font-semibold rounded-l-lg rounded-r-none z-10"
+                          ? "bg-[#148aff] text-white font-semibold rounded-l-lg rounded-r-none z-10"
                           : isEnd
-                          ? "bg-indigo-600 text-white font-semibold rounded-r-lg rounded-l-none z-10"
+                          ? "bg-[#148aff] text-white font-semibold rounded-r-lg rounded-l-none z-10"
                           : inRange
-                          ? "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 rounded-none"
+                          ? "bg-[#e4effc] dark:bg-[#263242] text-[#1681ec] dark:text-[#1681ec] rounded-none"
                           : !currentMonth
-                          ? "text-slate-300 dark:text-slate-600"
+                          ? "text-slate-300 dark:text-[#4b4b50]"
                           : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                       }`}
                     >
@@ -352,7 +354,7 @@ export function DateRangePicker({ startDate, endDate, onChange, locale }: DateRa
           </div>
 
           {/* Bottom bar */}
-          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-[#3f3f41] flex items-center justify-between">
             <span className="text-xs text-slate-500 dark:text-slate-400">
               {active === "start"
                 ? locale === "zh-CN" ? "正在设置开始日期" : "Setting start date"
@@ -361,7 +363,7 @@ export function DateRangePicker({ startDate, endDate, onChange, locale }: DateRa
             <button
               type="button"
               onClick={commitDraft}
-              className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+              className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-[#0060df] text-white hover:bg-[#0051c4] transition-colors"
             >
               {locale === "zh-CN" ? "确定" : "Apply"}
             </button>
@@ -394,22 +396,23 @@ function DateField({
   locale: Locale;
 }) {
   return (
+    /* 日期选择范围中的日期输入框组件 */
     <div
-      className={`flex-1 min-w-0 rounded-xl border bg-white dark:bg-slate-900 shadow-sm transition-all duration-200 overflow-hidden cursor-text ${
+      className={`flex-1 min-w-0 rounded-xl border shadow-sm transition-all duration-200 overflow-hidden cursor-text ${
         isActive
-          ? "border-indigo-400 dark:border-indigo-500 ring-2 ring-indigo-500/15"
-          : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+          ? "bg-[#f4f9ff] dark:bg-[#262c36] border-[#148aff] dark:border-[#148aff] ring-2 ring-[#148aff]/10"
+          : "bg-white dark:bg-[#28282c] border-slate-200 dark:border-[#3f3f41] hover:border-slate-300 dark:hover:border-slate-600"
       }`}
       onClick={onActivate}
     >
       <div className="flex items-center">
-        <span className="text-[10.5px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0 pl-2.5">
+        <span className="text-[10.5px] font-medium text-[slate-400] dark:text-[#e2e8f0] whitespace-nowrap shrink-0 pl-2.5">
           {label}
         </span>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onMinus(); }}
-          className="shrink-0 p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+          className="shrink-0 p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1d1d20] rounded-lg transition-colors"
           aria-label={locale === "zh-CN" ? "前一天" : "Previous day"}
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -430,7 +433,7 @@ function DateField({
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onPlus(); }}
-          className="shrink-0 p-1.5 mr-0.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+          className="shrink-0 p-1.5 mr-0.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1d1d20] rounded-lg transition-colors"
           aria-label={locale === "zh-CN" ? "后一天" : "Next day"}
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">

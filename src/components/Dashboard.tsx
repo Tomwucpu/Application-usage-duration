@@ -185,12 +185,12 @@ export function Dashboard() {
       </div>
 
       {/* Date picker + refresh */}
-      <div className="relative z-50 flex items-center justify-between gap-3 rounded-3xl border border-slate-200/70 bg-slate-100/60 p-2 shadow-inner shadow-white/70 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/50 dark:shadow-black/20">
+      <div className="relative z-50 flex items-center justify-between gap-3 rounded-3xl border border-slate-200/70 bg-slate-100/60 p-2 shadow-white/70 backdrop-blur dark:border-[#3f3f41] dark:bg-[#27272b]">
         <DatePicker value={selectedDate} onChange={setDate} locale={locale} />
         <button
           onClick={() => refresh()}
           disabled={loading}
-          className="rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-700 shrink-0 transition-colors duration-200 disabled:opacity-50 dark:border-slate-700/70 dark:bg-slate-900/90 dark:text-slate-300"
+          className="rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-700 shrink-0 transition-colors duration-200 disabled:opacity-50 dark:border-[#3f3f41] dark:bg-[#1d1d20] dark:text-slate-300"
         >
           {loading ? t("refresh.loading") : t("refresh")}
         </button>
@@ -201,13 +201,13 @@ export function Dashboard() {
         {displaySummary ? (
           <>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
+              <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
                 <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.total")}</div>
                 <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
                   {formatDuration(displaySummary.total_seconds, locale)}
                 </div>
               </div>
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
+              <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
                 <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.apps")}</div>
                 <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
                   {displaySummary.apps.length}

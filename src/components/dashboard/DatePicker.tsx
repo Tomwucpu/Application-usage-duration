@@ -125,8 +125,9 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
   const isTodaySelected = value === toDateString(new Date());
 
   return (
+    // 单日期选择
     <div ref={containerRef} className="relative z-50 flex items-center gap-3">
-  <div className="date-strip flex items-center rounded-2xl border border-slate-200/80 bg-white px-2 py-1 shadow-sm shadow-slate-200/70 dark:border-slate-700/70 dark:bg-slate-900 dark:shadow-black/20">
+     <div className="date-strip flex items-center rounded-2xl border border-slate-200/80 bg-white px-2 py-1 shadow-sm shadow-slate-200/70 dark:border-[#3f3f41] dark:bg-[#1d1d20] dark:shadow-black/20">
         <button
           type="button"
           onClick={() => changeByDays(-1)}
@@ -174,7 +175,7 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
         <div
           role="dialog"
           aria-label={locale === "zh-CN" ? "选择日期" : "Select date"}
-          className="date-calendar-popover absolute left-0 top-[calc(100%+0.75rem)] z-50 w-[336px] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300 dark:border-slate-700 dark:bg-slate-950 dark:shadow-black"
+          className="date-calendar-popover absolute left-0 top-[calc(100%+0.75rem)] z-50 w-[336px] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300 dark:border-[#3f3f41] dark:bg-[#28282c] dark:shadow-black"
         >
           <div className="flex items-center justify-between px-1">
             <button
@@ -204,7 +205,7 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
 
           <div className="relative mt-4 grid grid-cols-7 gap-1 text-center">
             {WEEKDAYS[locale].map((weekday) => (
-              <div key={weekday} className="py-2 text-[11px] font-medium tracking-wide text-slate-400 dark:text-slate-500">
+              <div key={weekday} className="py-2 text-[12px] font-medium tracking-wide text-[#71717a] dark:text-[#a1a1aa]">
                 {weekday}
               </div>
             ))}

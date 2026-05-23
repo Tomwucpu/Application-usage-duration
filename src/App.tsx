@@ -32,8 +32,8 @@ function NavButton({
       title={title}
       className={`p-2 rounded-md transition-colors ${
         active
-          ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
-          : "text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300"
+          ? "bg-indigo-50 dark:bg-[#27272b] text-[#3b82f6] dark:text-[#3b82f6]"
+          : "text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-[#27272b] hover:text-slate-700 dark:hover:text-slate-300"
       }`}
     >
       {children}
@@ -59,8 +59,8 @@ function AppInner() {
   }, [locale]);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
-      <header className="border-b border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between">
+    <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-[#1d1d20] text-slate-900 dark:text-slate-100 transition-colors">
+      <header className="border-b border-slate-200 dark:border-[#3f3f41] px-6 py-3 flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-tight">{t("app.title")}</h1>
         <div className="flex items-center gap-1">
           <NavButton

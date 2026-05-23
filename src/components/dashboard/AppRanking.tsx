@@ -1,6 +1,7 @@
 import { useT } from "../../i18n";
 import type { Locale } from "../../i18n";
 import { useStore } from "../../stores/useStore";
+import { CHART_COLORS } from "../../themes/colors";
 
 import type { AppSummary } from "../../types";
 
@@ -9,12 +10,6 @@ interface Props {
   totalSeconds: number;
   loading: boolean;
 }
-
-const COLORS = [
-  "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
-  "#ec4899", "#f43f5e", "#f97316", "#eab308",
-  "#22c55e", "#14b8a6", "#06b6d4", "#3b82f6",
-];
 
 function formatDuration(seconds: number, locale: Locale): string {
   const m = Math.floor(seconds / 60);
@@ -49,7 +44,7 @@ export function AppRanking({ apps, totalSeconds, loading }: Props) {
   const topApps = apps.slice(0, 15);
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 shadow-sm dark:shadow-none">
+    <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 shadow-sm dark:shadow-none">
       <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">{t("chart.ranking")}</h2>
 
       {topApps.length === 0 && (
@@ -85,12 +80,12 @@ export function AppRanking({ apps, totalSeconds, loading }: Props) {
                     {formatDuration(app.total_seconds, locale)}
                   </span>
                 </div>
-                <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-slate-100 dark:bg-[#1d1d20] rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
                       width: `${Math.max(pct, 2)}%`,
-                      backgroundColor: COLORS[i % COLORS.length],
+                      backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
                     }}
                   />
                 </div>

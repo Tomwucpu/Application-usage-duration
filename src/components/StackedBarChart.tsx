@@ -12,13 +12,8 @@ import type { HourlyAppBreakdown, DailyAppBreakdown } from "../types";
 import { useT } from "../i18n";
 import { useStore } from "../stores/useStore";
 import { DateRangePicker } from "./breakdown/DateRangePicker";
+import { CHART_COLORS, CHART_OTHER_COLOR } from "../themes/colors";
 
-const COLORS = [
-  "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
-  "#ec4899", "#f43f5e", "#f97316", "#eab308",
-  "#22c55e", "#14b8a6", "#06b6d4", "#3b82f6",
-];
-const OTHER_COLOR = "#475569";
 const TOP_N = 10;
 
 function fmtLocalDate(d: Date): string {
@@ -72,9 +67,9 @@ function buildDailyChartData(
 
   const colorMap: Record<string, string> = {};
   topApps.forEach((name, i) => {
-    colorMap[name] = COLORS[i % COLORS.length];
+    colorMap[name] = CHART_COLORS[i % CHART_COLORS.length];
   });
-  if (hasOthers) colorMap[othersLabel] = OTHER_COLOR;
+  if (hasOthers) colorMap[othersLabel] = CHART_OTHER_COLOR;
 
   const chartData = [];
   for (let h = 0; h < 24; h++) {
@@ -122,9 +117,9 @@ function buildRangeChartData(
 
   const colorMap: Record<string, string> = {};
   topApps.forEach((name, i) => {
-    colorMap[name] = COLORS[i % COLORS.length];
+    colorMap[name] = CHART_COLORS[i % CHART_COLORS.length];
   });
-  if (hasOthers) colorMap[othersLabel] = OTHER_COLOR;
+  if (hasOthers) colorMap[othersLabel] = CHART_OTHER_COLOR;
 
   const chartData = dates.map(({ date, label }) => {
     const entry: Record<string, string | number> = { dateLabel: label };
@@ -169,7 +164,8 @@ function CustomTooltip({
   const total = sorted.reduce((sum, p) => sum + p.value, 0);
 
   return (
-    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 shadow-xl">
+    // tooltip 的内容容器，显示在鼠标悬停时
+    <div className="bg-white dark:bg-[#1d1d20] border border-slate-200 dark:border-[#3f3f41] rounded-lg px-3 py-2 shadow-xl">
       <div className="text-slate-800 dark:text-slate-200 font-medium text-sm mb-1">{label}</div>
       <div className="space-y-0.5">
         {sorted.map((p) => {
@@ -186,7 +182,7 @@ function CustomTooltip({
                 className={`rounded-sm shrink-0 transition-all duration-150 ${
                   isHovered ? "w-2.5 h-2.5 ring-2 ring-offset-1 ring-slate-400 dark:ring-slate-500" : "w-2 h-2"
                 }`}
-                style={{ backgroundColor: colorMap[p.name] || OTHER_COLOR }}
+                style={{ backgroundColor: colorMap[p.name] || CHART_OTHER_COLOR }}
               />
               <span className={`text-slate-700 dark:text-slate-300 truncate max-w-[100px] ${isHovered ? "font-semibold" : ""}`}>
                 {p.name}
@@ -211,7 +207,6 @@ function CustomTooltip({
 
 export function StackedBarChart({ hourlyData, dailyData }: Props) {
   const { t, locale } = useT();
-  const theme = useStore((s) => s.theme);
   const selectedDate = useStore((s) => s.selectedDate);
   const viewMode = useStore((s) => s.viewMode);
   const setViewMode = useStore((s) => s.setViewMode);
@@ -219,7 +214,6 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
   const customEndDate = useStore((s) => s.customEndDate);
   const setCustomRange = useStore((s) => s.setCustomRange);
   const othersLabel = t("chart.others");
-  const isDark = theme === "dark";
   const [hoveredApp, setHoveredApp] = useState<string | null>(null);
 
   const dateList = useMemo(() => {
@@ -315,7 +309,7 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
 
   if (!hasEntries) {
     return (
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
+      <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
         {/* View title + switcher */}
         <div className="flex items-center justify-between">
           <div>
@@ -360,7 +354,8 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
+    // 应用使用分布组件
+    <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
       {/* View title + switcher */}
       <div className="flex items-center justify-between">
         <div>
@@ -371,15 +366,16 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{rangeTitle}</p>
           )}
         </div>
-        <div className="inline-flex bg-slate-100 dark:bg-slate-950/50 rounded-lg p-1 border border-slate-200 dark:border-slate-800/60">
+        {/* 视图切换 */}
+        <div className="inline-flex bg-slate-100 dark:bg-[#1d1d20] rounded-lg p-1 border border-slate-200 dark:border-[#3f3f41]">
           {(["daily", "weekly", "monthly", "custom"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
                 viewMode === mode
-                  ? "bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                  : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/50"
+                  ? "bg-[#0060df] dark:bg-[#0060df] text-[#ffffff] dark:text-[#ffffff] shadow-sm"
+                  : "text-[#a9a9af] dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#27272b]"
               }`}
             >
               {t(`breakdown.${mode}`)}
@@ -405,16 +401,16 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
             data={chartData}
             margin={{ top: 10, right: 4, bottom: 4, left: 0 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "#1e293b" : "#e2e8f0"} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-chart-grid)" />
             <XAxis
               dataKey={viewMode === "daily" ? "hour" : "dateLabel"}
-              tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 11 }}
+              tick={{ fill: "var(--color-chart-tick)", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               interval={xInterval}
             />
             <YAxis
-              tick={{ fill: isDark ? "#94a3b8" : "#64748b", fontSize: 11 }}
+              tick={{ fill: "var(--color-chart-tick)", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               tickFormatter={(v: number) => `${Math.round(v / 60)}`}
@@ -424,7 +420,7 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
               content={
                 <CustomTooltip colorMap={colorMap} hoveredApp={hoveredApp} />
               }
-              cursor={{ fill: isDark ? "rgba(148, 163, 184, 0.08)" : "rgba(100, 116, 139, 0.08)" }}
+              cursor={{ fill: "var(--color-chart-cursor)" }}
             />
             {appNames.map((appName) => (
               <Bar
@@ -444,7 +440,7 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {/* Legend / Annotations */}
+      {/* 图例和注释 */}
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-1 pt-2">
         {appNames.map((name) => (
           <div key={name} className="flex items-center gap-1.5">
