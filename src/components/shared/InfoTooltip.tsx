@@ -80,7 +80,7 @@ export function InfoTooltip({ children }: InfoTooltipProps) {
       </button>
       {visible && (
         <div ref={bubbleRef} className={`absolute top-full z-20 mt-2 w-80 ${bubbleClass}`}>
-          <div className="rounded-xl border border-slate-200/70 bg-white/95 px-3.5 py-2.5 text-xs leading-relaxed text-slate-600 shadow-lg shadow-slate-900/8 backdrop-blur dark:border-slate-700/60 dark:bg-slate-900/95 dark:text-slate-400 dark:shadow-black/20">
+          <div className="rounded-xl border border-slate-200/70 bg-white/95 px-3.5 py-2.5 text-xs leading-relaxed text-slate-600 shadow-lg backdrop-blur dark:border-[#3f3f41] dark:bg-[#1d1d20] dark:text-[#ffffff] dark:shadow-black/20">
             {children}
           </div>
         </div>

@@ -6,7 +6,7 @@ mod tray;
 use db::{DailyAppBreakdown, DailySummary, Database, HourlyAppBreakdown, ImportBatchResult, ImportRecord, UsageRecord};
 use icon::IconCache;
 use std::sync::Arc;
-use tauri::{App, Manager, WindowEvent};
+use tauri::{App, Manager, Theme, WindowEvent};
 use tracker::Tracker;
 
 #[tauri::command]
@@ -93,18 +93,53 @@ fn start_tracking(
 }
 
 #[tauri::command]
-fn get_all_app_icons(
+fn flush_tracking(
     db: tauri::State<Arc<Database>>,
-    icon_cache: tauri::State<Arc<IconCache>>,
+    tracker: tauri::State<Arc<Tracker>>,
+) -> Result<(), String> {
+    tracker::flush_tracking(&db, &tracker.state)
+}
+
+#[tauri::command]
+fn update_window_theme(app: tauri::AppHandle, theme: String) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let tauri_theme = if theme == "light" {
+            Some(Theme::Light)
+        } else {
+            Some(Theme::Dark)
+        };
+        let _ = window.set_theme(tauri_theme);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn get_today_total_seconds(db: tauri::State<Arc<Database>>) -> Result<i64, String> {
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    db.get_today_total_seconds(&today)
+}
+
+#[tauri::command]
+async fn get_all_app_icons(
+    db: tauri::State<'_, Arc<Database>>,
+    icon_cache: tauri::State<'_, Arc<IconCache>>,
 ) -> Result<std::collections::HashMap<String, String>, String> {
     let app_paths = db.get_all_app_metadata()?;
-    let mut map = std::collections::HashMap::new();
-    for (name, path) in app_paths {
-        let icon = icon_cache.get_or_extract(&path);
-        if !icon.is_empty() {
-            map.insert(name, icon);
+    let cache = icon_cache.inner().clone();
+
+    let map = tokio::task::spawn_blocking(move || -> std::collections::HashMap<String, String> {
+        let mut map = std::collections::HashMap::new();
+        for (name, path) in app_paths {
+            let icon = cache.get_or_extract(&path);
+            if !icon.is_empty() {
+                map.insert(name, icon);
+            }
         }
-    }
+        map
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
     Ok(map)
 }
 
@@ -157,6 +192,7 @@ pub fn run() {
             get_hourly_app_breakdown,
             get_daily_app_breakdown,
             start_tracking,
+            flush_tracking,
             get_setting,
             set_setting,
             get_all_app_names,
@@ -165,7 +201,9 @@ pub fn run() {
             get_records_range,
             get_record_count,
             import_records_batch,
-            tray::update_tray_menu
+            tray::update_tray_menu,
+            update_window_theme,
+            get_today_total_seconds
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

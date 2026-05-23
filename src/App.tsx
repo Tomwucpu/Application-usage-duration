@@ -43,6 +43,7 @@ function NavButton({
 
 function AppInner() {
   const init = useStore((s) => s.init);
+  const theme = useStore((s) => s.theme);
   const { t, locale } = useT();
   const [currentView, setCurrentView] = useState<View>("dashboard");
 
@@ -52,6 +53,10 @@ function AppInner() {
       p.then((cleanup) => cleanup());
     };
   }, [init]);
+
+  useEffect(() => {
+    invoke("update_window_theme", { theme });
+  }, [theme]);
 
   useEffect(() => {
     api.setSetting("locale", locale);

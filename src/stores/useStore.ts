@@ -219,30 +219,37 @@ export const useStore = create<Store>((set, get) => ({
 
   refresh: async () => {
     set({ loading: true });
-    const state = get();
-    const tasks: Promise<unknown>[] = [
-      invoke<DailySummary>("get_daily_summary", { date: state.selectedDate }).then((summary) => {
-        set({ summary });
-      }),
-      state.ensureAppIconsLoaded(true),
-    ];
+    try {
+      await invoke("flush_tracking");
+      const state = get();
+      const tasks: Promise<unknown>[] = [
+        invoke<DailySummary>("get_daily_summary", { date: state.selectedDate }).then((summary) => {
+          set({ summary });
+        }),
+        invoke<number>("get_today_total_seconds").then((seconds) => {
+          set((s) => ({ tracker: { ...s.tracker, today_total_seconds: seconds } }));
+        }),
+        state.ensureAppIconsLoaded(),
+      ];
 
-    if (state.viewMode === "daily") {
-      tasks.push(state.loadHourlyBreakdown(state.selectedDate, true));
-      const { start, end } = getWeekRange(state.selectedDate);
-      tasks.push(state.loadRangeBreakdown(start, end, true));
-    } else if (state.viewMode === "weekly") {
-      const { start, end } = getWeekRange(state.selectedDate);
-      tasks.push(state.loadRangeBreakdown(start, end, true));
-    } else if (state.viewMode === "monthly") {
-      const { start, end } = getMonthRange(state.selectedDate);
-      tasks.push(state.loadRangeBreakdown(start, end, true));
-    } else if (state.viewMode === "custom" && state.customStartDate && state.customEndDate) {
-      tasks.push(state.loadRangeBreakdown(state.customStartDate, state.customEndDate, true));
+      if (state.viewMode === "daily") {
+        tasks.push(state.loadHourlyBreakdown(state.selectedDate, true));
+        const { start, end } = getWeekRange(state.selectedDate);
+        tasks.push(state.loadRangeBreakdown(start, end, true));
+      } else if (state.viewMode === "weekly") {
+        const { start, end } = getWeekRange(state.selectedDate);
+        tasks.push(state.loadRangeBreakdown(start, end, true));
+      } else if (state.viewMode === "monthly") {
+        const { start, end } = getMonthRange(state.selectedDate);
+        tasks.push(state.loadRangeBreakdown(start, end, true));
+      } else if (state.viewMode === "custom" && state.customStartDate && state.customEndDate) {
+        tasks.push(state.loadRangeBreakdown(state.customStartDate, state.customEndDate, true));
+      }
+
+      await Promise.all(tasks);
+    } finally {
+      set({ loading: false });
     }
-
-    await Promise.all(tasks);
-    set({ loading: false });
   },
 
   setActiveTab: (tab: TabId) => {
@@ -257,6 +264,7 @@ export const useStore = create<Store>((set, get) => ({
       document.documentElement.classList.remove("dark");
     }
     set({ theme });
+    invoke("update_window_theme", { theme });
   },
 
   loadHourlyBreakdown: async (date: string, force = false) => {
@@ -265,10 +273,7 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
 
-    const [data] = await Promise.all([
-      invoke<HourlyAppBreakdown[]>("get_hourly_app_breakdown", { date }),
-      get().ensureAppIconsLoaded(),
-    ]);
+    const data = await invoke<HourlyAppBreakdown[]>("get_hourly_app_breakdown", { date });
     set({ hourlyBreakdown: data, hourlyBreakdownDate: date });
   },
 
@@ -304,10 +309,7 @@ export const useStore = create<Store>((set, get) => ({
       return;
     }
 
-    const [data] = await Promise.all([
-      invoke<DailyAppBreakdown[]>("get_daily_app_breakdown", { startDate: start, endDate: end }),
-      get().ensureAppIconsLoaded(),
-    ]);
+    const data = await invoke<DailyAppBreakdown[]>("get_daily_app_breakdown", { startDate: start, endDate: end });
     set({
       rangeBreakdown: data,
       rangeBreakdownRange: { start, end },

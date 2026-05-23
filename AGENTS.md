@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Tauri 2 desktop app — Windows foreground app usage tracker with React 18 + Recharts + Zustand frontend and Rust + SQLite backend. See `CLAUDE.md` for architecture basics (ignore its stale claim that AFK threshold is hardcoded — it's configurable, see Settings table below); this file covers gotchas and conventions agents frequently miss.
+Tauri 2 desktop app — Windows foreground app usage tracker with React 18 + Recharts + Zustand frontend and Rust + SQLite backend. `CLAUDE.md` covers architecture basics (but its claim that AFK threshold is hardcoded is stale — see Settings section below).
 
 ## Commands
 
@@ -40,10 +40,24 @@ const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"), day = Str
 ```
 Both `Dashboard.tsx` and `StackedBarChart.tsx` define their own `fmtLocalDate` helper — keep them in sync.
 
-**Known violation:** `useStore.ts` `setViewMode` (line ~280) still uses `toISOString()` to default custom range dates. This is tolerated because it defaults to last 7 days, but be aware it can produce off-by-one near midnight.
+**Three known `toISOString()` violations in `useStore.ts`:**
+1. `setViewMode` (line 280-281) — defaults custom range to last 7 days
+2. `getWeekRange` / `getMonthRange` (lines 132, 140) — called by `refresh()` on every view-mode change
+3. `selectedDate` initial value (line 154) — app startup default date
+
+All three produce off-by-one near midnight. `Dashboard.tsx` defines its own safe `getWeekRange`/`getMonthRange` (lines 42-58) using `fmtLocalDate`, so the UI displays correctly, but the store's internal range calculations can produce incorrect date boundaries that affect which data gets fetched.
+
+### Duplicated date helpers
+`getWeekRange` and `getMonthRange` exist in both `useStore.ts` and `Dashboard.tsx`. The store versions use `toISOString()` (unsafe); the Dashboard versions use `fmtLocalDate` (safe). Keep these in sync if modified — or better, deduplicate into a shared utility.
+
+### API layer inconsistency
+`useStore.ts` exports a named `api` object wrapping `invoke` with baseline performance logging (enabled only on `localhost`). Use `api.getSetting`/`api.setSetting` for settings. HOWEVER, most data-fetching invoke calls (`setDate`, `refresh`, `loadHourlyBreakdown`, `loadRangeBreakdown`, `init`) bypass `api` and call raw `invoke()` directly. The `api` wrapper is only used for settings, icons, app names, and record import/export.
 
 ### Store caching quirk
 `loadRangeBreakdown` in `useStore.ts` only skips fetch when `rangeBreakdown.length > 0` (alongside range match). An empty-result range is NOT cached and will refetch on every invocation. Check `rangeBreakdownRange` (non-null = loaded) to distinguish "loading" from "loaded but empty".
+
+### `ensureAppIconsLoaded` stale-closure race
+`useStore.ts:330-332` reads `state.appIcons` via `get()`, awaits `api.getAllAppIcons()`, then shallow-merges with the snapshot. If called concurrently (e.g. `refresh()` + `ImportDialog` post-import), the later `set()` can overwrite icons fetched by an earlier call. Low risk in practice but worth noting.
 
 ### Chart behavior
 - `StackedBarChart` `customDates` generates ALL dates between start/end, not just dates found in data. Zero-value bars render for empty days.
@@ -59,11 +73,9 @@ Controlled by `dark` class on `document.documentElement`. Store sets `localStora
 ### Routing
 No React Router. `App.tsx` uses `useState<View>` ("dashboard" | "settings"). All "page" components are `React.lazy()`.
 
-### API layer
-`useStore.ts` exports a named `api` object wrapping `invoke` calls with baseline performance logging (enabled only on `localhost`). Use `api.getSetting`/`api.setSetting` instead of raw `invoke` for settings.
-
 ### i18n type casting
 The `useT()` hook returns `t: (key: keyof Translations) => string` (strict literal keys). When passing `t` to a child component that declares `t: (key: string) => string`, cast at the call site: `t={t as (key: string) => string}`. Otherwise strict mode rejects the assignment due to parameter contravariance.
+Note: `Translations` is `typeof zhCN` — `zh-CN.json` defines the canonical key set. Extra keys in `en-US.json` are silently inaccessible.
 
 ### Import data flow
 - `parseImportFile` in `importUtils.ts` handles both CSV and JSON auto-detected by extension. CSV parsing handles RFC 4180 quoted fields with escaped quotes.
@@ -91,6 +103,8 @@ The AFK threshold is no longer hardcoded. `tracker.rs` reads `afk_threshold_seco
 ### Tracker lock scope — CRITICAL
 `get_active_window_info()` must be called **before** `state.lock()`, not inside it (tracker.rs:365). When the tracker app itself is foreground, `GetWindowTextW` sends synchronous `WM_GETTEXT` to the main thread. If called inside the lock, the main thread's invoke processing can block on `db.conn` while the tracking thread holds `state.lock()` waiting for the main thread — causing refresh to hang indefinitely.
 
+**Related:** `db.get_today_total_seconds()` at tracker.rs:506 is called while `state.lock()` is held. This means the DB lock is acquired inside the tracker state lock. Currently safe because Tauri invoke commands never touch tracker state, but any code that acquires both locks must respect this ordering (`state.lock()` → `db.conn.lock()`).
+
 ### `import_records_batch` — param count
 The dedup `SELECT` SQL uses 8 placeholders (`?1`-`?8`). Each `?N` placeholder that appears multiple times in SQL (e.g., `?2` in both sides of an OR) must be bound **once** in `params![]`. Passing extra params causes rusqlite errors at runtime (rejects silently, rolls back).
 
@@ -102,6 +116,10 @@ After `COMMIT`, `drop(conn)` before calling `upsert_app_metadata`. `upsert_app_m
 
 ### Rust tests
 Only `tracker.rs` has tests (5 tests for `should_ignore_app_from_settings`). No DB-level tests — `cargo test` does not exercise SQLite logic.
+
+## CI
+
+Single workflow (`release.yml`), triggered on `v*` tags only. `windows-latest` runner. Runs `npm run build` (which includes `tsc` type-check) + `cargo check`, then `tauri-action`. **No tests run in CI** — neither `npm run test` nor `cargo test` are executed. `tsc` is the only automated quality gate.
 
 ## Type constraints
 

@@ -3066,6 +3066,7 @@ dependencies = [
  "chrono",
  "cocoa",
  "core-foundation 0.9.4",
+ "crossbeam-channel",
  "image",
  "rusqlite",
  "serde",

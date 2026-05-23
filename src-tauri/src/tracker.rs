@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::sync::{Arc, Mutex, OnceLock};
 
+use crossbeam_channel::{bounded, RecvTimeoutError, Sender};
 use chrono::Local;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -18,6 +18,14 @@ pub struct TrackerState {
     pub current_title: String,
     pub current_icon: String,
     pub today_total_seconds: i64,
+    #[serde(skip)]
+    pub last_app: Option<String>,
+    #[serde(skip)]
+    pub last_app_path: Option<String>,
+    #[serde(skip)]
+    pub last_window_title: Option<String>,
+    #[serde(skip)]
+    pub last_start: Option<chrono::DateTime<chrono::Local>>,
 }
 
 pub struct Tracker {
@@ -37,6 +45,10 @@ impl Tracker {
                 current_title: String::new(),
                 current_icon: String::new(),
                 today_total_seconds: 0,
+                last_app: None,
+                last_app_path: None,
+                last_window_title: None,
+                last_start: None,
             })),
             db,
             icon_cache,
@@ -177,49 +189,59 @@ fn wide_null(s: &str) -> Vec<u16> {
 #[cfg(target_os = "windows")]
 mod platform {
     use windows::core::PWSTR;
+    use windows::Win32::Foundation::HWND;
     use windows::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_INFORMATION,
         PROCESS_QUERY_LIMITED_INFORMATION,
     };
-    use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
-    use windows::Win32::UI::WindowsAndMessaging::{
-        GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
+    use windows::Win32::UI::Accessibility::{
+        SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK,
     };
+    use windows::Win32::UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO};
+    use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 
-    pub fn get_active_window_info() -> Option<(String, String, Option<String>)> {
+    #[cfg(target_os = "windows")]
+    use super::foreground_hook_callback;
+
+    pub fn get_process_info_by_hwnd(hwnd: isize) -> Option<(String, String, Option<String>)> {
         unsafe {
-            let hwnd = GetForegroundWindow();
-            if hwnd.0 == 0 {
-                return None;
-            }
-
-            let len = GetWindowTextLengthW(hwnd);
-            let mut title = String::new();
-            if len > 0 {
-                let mut buf = vec![0u16; (len + 1) as usize];
-                GetWindowTextW(hwnd, &mut buf);
-                title = String::from_utf16_lossy(&buf[..len as usize])
-                    .trim()
-                    .to_string();
-            }
-
+            let hwnd = HWND(hwnd);
             let mut pid: u32 = 0;
             GetWindowThreadProcessId(hwnd, Some(&mut pid));
             let (app_name, path) = get_process_info(pid);
 
             let name = if app_name.is_empty() {
-                title.clone()
+                String::new()
             } else {
                 app_name
             };
 
-            Some((name, title, path))
+            Some((name, String::new(), path))
+        }
+    }
+
+    pub fn register_hook() -> HWINEVENTHOOK {
+        unsafe {
+            SetWinEventHook(
+                3,  // EVENT_SYSTEM_FOREGROUND
+                3,  // EVENT_SYSTEM_FOREGROUND
+                None,
+                Some(foreground_hook_callback),
+                0,
+                0,
+                0,  // WINEVENT_OUTOFCONTEXT
+            )
+        }
+    }
+
+    pub fn unregister_hook(hook: HWINEVENTHOOK) {
+        unsafe {
+            let _ = UnhookWinEvent(hook);
         }
     }
 
     fn get_process_info(pid: u32) -> (String, Option<String>) {
         unsafe {
-            // Try PROCESS_QUERY_INFORMATION first, fall back to LIMITED
             let handle = OpenProcess(PROCESS_QUERY_INFORMATION, false, pid)
                 .or_else(|_| OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid));
 
@@ -282,15 +304,21 @@ mod platform {
 
 #[cfg(target_os = "macos")]
 mod platform {
-    pub fn get_active_window_info() -> Option<(String, String, Option<String>)> {
+    use std::ffi::c_void;
+
+    pub fn get_process_info_by_hwnd(_hwnd: isize) -> Option<(String, String, Option<String>)> {
         None
     }
+    pub fn register_hook() -> *mut c_void {
+        std::ptr::null_mut()
+    }
+    pub fn unregister_hook(_hook: *mut c_void) {}
     pub fn get_idle_seconds() -> u32 {
         0
     }
 }
 
-use platform::{get_active_window_info, get_idle_seconds};
+use platform::{get_process_info_by_hwnd, get_idle_seconds, register_hook, unregister_hook};
 
 fn should_ignore_app_from_settings(settings: Option<&HashMap<String, String>>, app: &str) -> bool {
     let Some(settings) = settings else {
@@ -310,7 +338,7 @@ fn should_ignore_app_from_settings(settings: Option<&HashMap<String, String>>, a
     ignored_enabled && ignored_apps.iter().any(|name| name == app)
 }
 
-fn should_ignore_app(db: &Database, app: &str) -> bool {
+pub(crate) fn should_ignore_app(db: &Database, app: &str) -> bool {
     let ignored_apps_enabled = db
         .get_setting("ignored_apps_enabled")
         .ok()
@@ -330,9 +358,39 @@ fn should_ignore_app(db: &Database, app: &str) -> bool {
     should_ignore_app_from_settings(Some(&settings), app)
 }
 
+pub fn flush_tracking(db: &Database, state: &Mutex<TrackerState>) -> Result<(), String> {
+    let mut current_state = state.lock().map_err(|e| e.to_string())?;
+
+    let now = Local::now();
+    if let (Some(ref app), Some(start)) = (&current_state.last_app, current_state.last_start) {
+        if app != "AFK" {
+            let duration = (now - start).num_seconds();
+            let is_ignored = should_ignore_app(db, app);
+            if duration > 0 && !is_ignored {
+                let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
+                let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
+                let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
+                db.insert_usage(
+                    app,
+                    current_state.last_app_path.as_deref(),
+                    current_state.last_window_title.as_deref(),
+                    &start_str,
+                    &end_str,
+                    duration,
+                    &start.format("%Y-%m-%d").to_string(),
+                    hour,
+                )?;
+            }
+        }
+        current_state.last_start = Some(now);
+    }
+
+    Ok(())
+}
+
 pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
     if tracker.thread_spawned.swap(true, Ordering::SeqCst) {
-        return; // Tracking thread already running
+        return;
     }
 
     let db = tracker.db.clone();
@@ -345,186 +403,306 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
         .and_then(|s| s.parse().ok())
         .unwrap_or(300);
 
+    // Set up channel: WinEvent callback pushes events, worker thread receives
+    let (tx, rx) = bounded::<ForegroundEvent>(64);
+    HOOK_SENDER.set(tx).ok();
+
+    let hook = register_hook();
+
     std::thread::spawn(move || {
         let name_cache = NameCache::new();
-        let mut last_app: Option<String> = None;
-        let mut last_app_path: Option<String> = None;
-        let mut last_window_title: Option<String> = None;
-        let mut last_start: Option<chrono::DateTime<Local>> = None;
-        let mut was_running = true;
         let mut persisted_metadata: std::collections::HashSet<String> =
             std::collections::HashSet::new();
+        let mut was_running = true;
+        let mut last_afk_check = std::time::Instant::now();
 
         loop {
-            std::thread::sleep(Duration::from_secs(2));
-
-            let now = Local::now();
-            let today = now.format("%Y-%m-%d").to_string();
-            let idle_secs = get_idle_seconds();
-            let is_idle = idle_secs > idle_threshold_seconds;
-            let window_info = if !is_idle { get_active_window_info() } else { None };
-
-            let mut current_state = state.lock().unwrap();
-
-            let just_paused = was_running && !current_state.is_running;
-            let just_resumed = !was_running && current_state.is_running;
-            was_running = current_state.is_running;
-
-            if !current_state.is_running {
-                if just_paused {
-                    if let (Some(ref app), Some(start)) = (&last_app, last_start) {
-                        if app != "AFK" {
-                            let duration = (now - start).num_seconds();
-                            let is_ignored = should_ignore_app(db.as_ref(), app);
-                            if duration > 0 && !is_ignored {
-                                let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
-                                let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
-                                let hour =
-                                    start.format("%H").to_string().parse::<i32>().unwrap_or(0);
-                                let _ = db.insert_usage(
-                                    app,
-                                    last_app_path.as_deref(),
-                                    last_window_title.as_deref(),
-                                    &start_str,
-                                    &end_str,
-                                    duration,
-                                    &start.format("%Y-%m-%d").to_string(),
-                                    hour,
-                                );
-                            }
-                        }
-                    }
-                    last_start = None;
+            match rx.recv_timeout(std::time::Duration::from_secs(10)) {
+                Ok(event) => {
+                    // Foreground window changed — process it
+                    process_foreground_change(
+                        event.hwnd,
+                        &db,
+                        &state,
+                        &icon_cache,
+                        &name_cache,
+                        &mut persisted_metadata,
+                        idle_threshold_seconds,
+                        &mut was_running,
+                        &app,
+                        &mut last_afk_check,
+                    );
                 }
-                let state_clone = current_state.clone();
-                drop(current_state);
-
-                let _ = app.emit("tracker-state", &state_clone);
-                continue;
-            }
-
-            if just_resumed {
-                last_start = Some(now);
-            }
-
-            if is_idle && !current_state.is_afk {
-                if let (Some(ref app), Some(start)) = (&last_app, last_start) {
-                    let duration = (now - start).num_seconds();
-                    let is_ignored = should_ignore_app(db.as_ref(), app);
-                    if duration > 0 && !is_ignored {
-                        let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
-                        let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
-                        let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
-                        let _ = db.insert_usage(
-                            app,
-                            last_app_path.as_deref(),
-                            last_window_title.as_deref(),
-                            &start_str,
-                            &end_str,
-                            duration,
-                            &start.format("%Y-%m-%d").to_string(),
-                            hour,
-                        );
-                    }
+                Err(RecvTimeoutError::Timeout) => {
+                    // No foreground change — check AFK transition
+                    check_afk_transition(
+                        &db,
+                        &state,
+                        idle_threshold_seconds,
+                        &mut was_running,
+                        &app,
+                    );
+                    last_afk_check = std::time::Instant::now();
                 }
-                last_app = Some("AFK".to_string());
-                last_app_path = None;
-                last_window_title = None;
-                last_start = None;
-                current_state.is_afk = true;
-                current_state.current_app = "AFK".to_string();
-                current_state.current_title = format!("空闲 {} 秒", idle_secs);
-                current_state.current_icon = String::new();
+                Err(RecvTimeoutError::Disconnected) => break,
             }
 
-            if !is_idle {
-                current_state.is_afk = false;
+            update_today_and_emit(&db, &state, &app);
+        }
 
-                if let Some((app_name, window_title, app_path)) = window_info.as_ref() {
-                    let app_name = app_name.clone();
-                    let window_title = window_title.clone();
-                    let app_path = app_path.clone();
-                    let display_name = app_path
-                        .as_ref()
-                        .and_then(|p| name_cache.resolve(p))
-                        .unwrap_or_else(|| app_name.clone());
+        unregister_hook(hook);
+    });
+}
 
-                    current_state.current_app = display_name.clone();
-                    current_state.current_title = window_title.clone();
+// ── Static channel + WinEvent callback ──────────────────────────
 
-                    // Persist app->path mapping for icon lookup (only once per app)
-                    if let Some(ref path) = app_path {
-                        if !persisted_metadata.contains(&display_name) {
-                            let _ = db.upsert_app_metadata(&display_name, path);
-                            persisted_metadata.insert(display_name.clone());
-                        }
-                    }
+struct ForegroundEvent {
+    hwnd: isize,
+}
 
-                    // Extract icon for new app
-                    if last_app.as_ref() != Some(&display_name) {
-                        if let Some(ref path) = app_path {
-                            current_state.current_icon = icon_cache.get_or_extract(path);
-                        } else {
-                            current_state.current_icon = String::new();
-                        }
-                    }
+static HOOK_SENDER: OnceLock<Sender<ForegroundEvent>> = OnceLock::new();
 
-                    let app_changed = last_app.as_ref() != Some(&display_name);
+#[cfg(target_os = "windows")]
+extern "system" fn foreground_hook_callback(
+    _hook: windows::Win32::UI::Accessibility::HWINEVENTHOOK,
+    _event: u32,
+    hwnd: windows::Win32::Foundation::HWND,
+    _id_object: i32,
+    _id_child: i32,
+    _thread_id: u32,
+    _time: u32,
+) {
+    if let Some(sender) = HOOK_SENDER.get() {
+        let _ = sender.send(ForegroundEvent { hwnd: hwnd.0 });
+    }
+}
 
-                    if app_changed {
-                        if let (Some(ref prev_app), Some(start)) = (&last_app, last_start) {
-                            if prev_app != "AFK" {
-                                let duration = (now - start).num_seconds();
-                                let is_ignored = should_ignore_app(db.as_ref(), prev_app);
-                                if duration > 0 && !is_ignored {
-                                    let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
-                                    let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
-                                    let hour =
-                                        start.format("%H").to_string().parse::<i32>().unwrap_or(0);
-                                    let _ = db.insert_usage(
-                                        prev_app,
-                                        last_app_path.as_deref(),
-                                        last_window_title.as_deref(),
-                                        &start_str,
-                                        &end_str,
-                                        duration,
-                                        &start.format("%Y-%m-%d").to_string(),
-                                        hour,
-                                    );
-                                }
-                            }
-                        }
+// ── Core helpers ────────────────────────────────────────────────
 
-                        last_app = Some(display_name);
-                        last_app_path = app_path.clone();
-                        last_window_title = Some(window_title.clone());
-                        last_start = Some(now);
-                    }
-                }
-            }
+fn process_foreground_change(
+    hwnd: isize,
+    db: &Database,
+    state: &Mutex<TrackerState>,
+    icon_cache: &IconCache,
+    name_cache: &NameCache,
+    persisted_metadata: &mut std::collections::HashSet<String>,
+    idle_threshold: u32,
+    was_running: &mut bool,
+    app_handle: &AppHandle,
+    last_afk_check: &mut std::time::Instant,
+) {
+    let now = Local::now();
+    let idle_secs = get_idle_seconds();
+    let is_idle = idle_secs > idle_threshold;
 
-            if let Ok(total) = db.get_today_total_seconds(&today) {
-                current_state.today_total_seconds = total;
-            }
+    let window_info = if !is_idle {
+        get_process_info_by_hwnd(hwnd)
+    } else {
+        None
+    };
 
-            let state_clone = current_state.clone();
-            drop(current_state);
+    let mut current_state = state.lock().unwrap();
 
-            let _ = app.emit("tracker-state", &state_clone);
+    let just_paused = *was_running && !current_state.is_running;
+    let just_resumed = !*was_running && current_state.is_running;
+    *was_running = current_state.is_running;
 
-            // Update tray tooltip
-            if let Some(tray) = app.tray_by_id("main-tray") {
-                let h = state_clone.today_total_seconds / 3600;
-                let m = (state_clone.today_total_seconds % 3600) / 60;
-                let tooltip = if state_clone.is_running {
-                    format!("Screen Time - {}h {}m today", h, m)
-                } else {
-                    format!("Screen Time - Paused ({}h {}m today)", h, m)
-                };
-                let _ = tray.set_tooltip(Some(&tooltip));
+    if !current_state.is_running {
+        if just_paused {
+            finalize_current_session(db, &mut current_state, now);
+            current_state.last_start = None;
+        }
+        let state_clone = current_state.clone();
+        drop(current_state);
+        let _ = app_handle.emit("tracker-state", &state_clone);
+        return;
+    }
+
+    if just_resumed {
+        current_state.last_start = Some(now);
+    }
+
+    // Handle AFK → active transition
+    if !is_idle && current_state.is_afk {
+        // Coming back from AFK
+        if let (Some(ref app), Some(_start)) =
+            (&current_state.last_app, current_state.last_start)
+        {
+            if app == "AFK" {
+                // AFK duration was recorded when entering AFK;
+                // reset last_start so new app tracking begins fresh
+                current_state.last_start = Some(now);
             }
         }
-    });
+        current_state.is_afk = false;
+    }
+
+    // Handle active → AFK transition
+    if is_idle && !current_state.is_afk {
+        finalize_current_session(db, &mut current_state, now);
+        current_state.last_app = Some("AFK".to_string());
+        current_state.last_app_path = None;
+        current_state.last_window_title = None;
+        current_state.last_start = None;
+        current_state.is_afk = true;
+        current_state.current_app = "AFK".to_string();
+        current_state.current_title = format!("空闲 {} 秒", idle_secs);
+        current_state.current_icon = String::new();
+    }
+
+    if !is_idle {
+        current_state.is_afk = false;
+
+        if let Some((app_name, _window_title, app_path)) = window_info.as_ref() {
+            let app_name = app_name.clone();
+            let app_path = app_path.clone();
+            let display_name = app_path
+                .as_ref()
+                .and_then(|p| name_cache.resolve(p))
+                .unwrap_or_else(|| app_name.clone());
+
+            current_state.current_app = display_name.clone();
+            current_state.current_title = String::new();
+
+            // Persist app→path mapping (once per app)
+            if let Some(ref path) = app_path {
+                if !persisted_metadata.contains(&display_name) {
+                    let _ = db.upsert_app_metadata(&display_name, path);
+                    persisted_metadata.insert(display_name.clone());
+                }
+            }
+
+            // Extract icon for new app
+            if current_state.last_app.as_ref() != Some(&display_name) {
+                if let Some(ref path) = app_path {
+                    current_state.current_icon = icon_cache.get_or_extract(path);
+                } else {
+                    current_state.current_icon = String::new();
+                }
+            }
+
+            let app_changed =
+                current_state.last_app.as_ref() != Some(&display_name);
+
+            if app_changed {
+                finalize_current_session(db, &mut current_state, now);
+
+                current_state.last_app = Some(display_name);
+                current_state.last_app_path = app_path.clone();
+                current_state.last_window_title = None;
+                current_state.last_start = Some(now);
+            }
+        }
+    }
+
+    *last_afk_check = std::time::Instant::now();
+    let state_clone = current_state.clone();
+    drop(current_state);
+    let _ = app_handle.emit("tracker-state", &state_clone);
+    update_tray_tooltip(app_handle, &state_clone);
+}
+
+fn finalize_current_session(
+    db: &Database,
+    state: &mut TrackerState,
+    now: chrono::DateTime<chrono::Local>,
+) {
+    if let (Some(ref app), Some(start)) = (&state.last_app, state.last_start) {
+        if app != "AFK" {
+            let duration = (now - start).num_seconds();
+            let is_ignored = should_ignore_app(db, app);
+            if duration > 0 && !is_ignored {
+                let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
+                let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
+                let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
+                let _ = db.insert_usage(
+                    app,
+                    state.last_app_path.as_deref(),
+                    state.last_window_title.as_deref(),
+                    &start_str,
+                    &end_str,
+                    duration,
+                    &start.format("%Y-%m-%d").to_string(),
+                    hour,
+                );
+            }
+        }
+    }
+}
+
+fn check_afk_transition(
+    db: &Database,
+    state: &Mutex<TrackerState>,
+    idle_threshold: u32,
+    was_running: &mut bool,
+    app_handle: &AppHandle,
+) {
+    let now = Local::now();
+    let idle_secs = get_idle_seconds();
+    let is_idle = idle_secs > idle_threshold;
+
+    let mut current_state = state.lock().unwrap();
+
+    if !current_state.is_running {
+        *was_running = false;
+        return;
+    }
+    *was_running = true;
+
+    // Active → AFK
+    if is_idle && !current_state.is_afk {
+        finalize_current_session(db, &mut current_state, now);
+        current_state.last_app = Some("AFK".to_string());
+        current_state.last_app_path = None;
+        current_state.last_window_title = None;
+        current_state.last_start = None;
+        current_state.is_afk = true;
+        current_state.current_app = "AFK".to_string();
+        current_state.current_title = format!("空闲 {} 秒", idle_secs);
+        current_state.current_icon = String::new();
+    }
+
+    // AFK → active
+    if !is_idle && current_state.is_afk {
+        current_state.is_afk = false;
+        current_state.last_start = Some(now);
+    }
+
+    let state_clone = current_state.clone();
+    drop(current_state);
+    let _ = app_handle.emit("tracker-state", &state_clone);
+    update_tray_tooltip(app_handle, &state_clone);
+}
+
+fn update_today_and_emit(
+    db: &Database,
+    state: &Mutex<TrackerState>,
+    app_handle: &AppHandle,
+) {
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    let mut current_state = state.lock().unwrap();
+
+    if let Ok(total) = db.get_today_total_seconds(&today) {
+        current_state.today_total_seconds = total;
+    }
+
+    let state_clone = current_state.clone();
+    drop(current_state);
+    let _ = app_handle.emit("tracker-state", &state_clone);
+    update_tray_tooltip(app_handle, &state_clone);
+}
+
+fn update_tray_tooltip(app_handle: &AppHandle, state_clone: &TrackerState) {
+    if let Some(tray) = app_handle.tray_by_id("main-tray") {
+        let h = state_clone.today_total_seconds / 3600;
+        let m = (state_clone.today_total_seconds % 3600) / 60;
+        let tooltip = if state_clone.is_running {
+            format!("Screen Time - {}h {}m today", h, m)
+        } else {
+            format!("Screen Time - Paused ({}h {}m today)", h, m)
+        };
+        let _ = tray.set_tooltip(Some(&tooltip));
+    }
 }
 
 #[cfg(test)]
