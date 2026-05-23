@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Tauri 2 desktop app — Windows foreground app usage tracker with React 18 + Recharts + Zustand frontend and Rust + SQLite backend. `CLAUDE.md` covers architecture basics (but its claim that AFK threshold is hardcoded is stale — see Settings section below).
+Tauri 2 desktop app — Windows foreground app usage tracker with React 18 + Recharts + Zustand frontend and Rust + SQLite backend.
 
 ## Commands
 
@@ -62,7 +62,7 @@ All three produce off-by-one near midnight. `Dashboard.tsx` defines its own safe
 ### Chart behavior
 - `StackedBarChart` `customDates` generates ALL dates between start/end, not just dates found in data. Zero-value bars render for empty days.
 - `BarChart` key includes `customStartDate`/`customEndDate` to trigger re-animation on range change.
-- The `hasEntries` check (line ~314) gates on `chartData.length > 0`, NOT on any bar having >0 value. This ensures empty ranges show 0 bars instead of "No data".
+- The `hasEntries` check (line ~308) gates on `chartData.length > 0`, NOT on any bar having >0 value. This ensures empty ranges show 0 bars instead of "No data".
 
 ### Rendering empty data
 `Dashboard.tsx` `displaySummary` returns `{ total_seconds: 0, apps: [], hourly: [] }` when range data is loaded-but-empty, and `null` only when unloaded. Summary cards, chart, and `AppRanking` all receive this empty object — AppRanking handles `apps.length === 0` internally with a "No data" message.
@@ -101,9 +101,9 @@ The AFK threshold is no longer hardcoded. `tracker.rs` reads `afk_threshold_seco
 `WindowEvent::CloseRequested` calls `api.prevent_close()` + `window.hide()`. User must quit via tray menu or `Ctrl+C` in dev.
 
 ### Tracker lock scope — CRITICAL
-`get_active_window_info()` must be called **before** `state.lock()`, not inside it (tracker.rs:365). When the tracker app itself is foreground, `GetWindowTextW` sends synchronous `WM_GETTEXT` to the main thread. If called inside the lock, the main thread's invoke processing can block on `db.conn` while the tracking thread holds `state.lock()` waiting for the main thread — causing refresh to hang indefinitely.
+`get_process_info_by_hwnd()` must be called **before** `state.lock()`, not inside it (tracker.rs:498-504 in `process_foreground_change`). When the tracker app itself is foreground, `GetWindowTextW` sends synchronous `WM_GETTEXT` to the main thread. If called inside the lock, the main thread's invoke processing can block on `db.conn` while the tracking thread holds `state.lock()` waiting for the main thread — causing refresh to hang indefinitely.
 
-**Related:** `db.get_today_total_seconds()` at tracker.rs:506 is called while `state.lock()` is held. This means the DB lock is acquired inside the tracker state lock. Currently safe because Tauri invoke commands never touch tracker state, but any code that acquires both locks must respect this ordering (`state.lock()` → `db.conn.lock()`).
+**Related:** `db.get_today_total_seconds()` at tracker.rs:685 (in `update_today_and_emit`) is called while `state.lock()` is held. This means the DB lock is acquired inside the tracker state lock. Currently safe because Tauri invoke commands never touch tracker state, but any code that acquires both locks must respect this ordering (`state.lock()` → `db.conn.lock()`).
 
 ### `import_records_batch` — param count
 The dedup `SELECT` SQL uses 8 placeholders (`?1`-`?8`). Each `?N` placeholder that appears multiple times in SQL (e.g., `?2` in both sides of an OR) must be bound **once** in `params![]`. Passing extra params causes rusqlite errors at runtime (rejects silently, rolls back).

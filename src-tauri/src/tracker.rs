@@ -359,30 +359,75 @@ pub(crate) fn should_ignore_app(db: &Database, app: &str) -> bool {
 }
 
 pub fn flush_tracking(db: &Database, state: &Mutex<TrackerState>) -> Result<(), String> {
-    let mut current_state = state.lock().map_err(|e| e.to_string())?;
-
     let now = Local::now();
-    if let (Some(ref app), Some(start)) = (&current_state.last_app, current_state.last_start) {
-        if app != "AFK" {
-            let duration = (now - start).num_seconds();
-            let is_ignored = should_ignore_app(db, app);
-            if duration > 0 && !is_ignored {
-                let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
-                let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
-                let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
-                db.insert_usage(
-                    app,
-                    current_state.last_app_path.as_deref(),
-                    current_state.last_window_title.as_deref(),
-                    &start_str,
-                    &end_str,
-                    duration,
-                    &start.format("%Y-%m-%d").to_string(),
-                    hour,
-                )?;
+
+    struct FlushRecord {
+        app: String,
+        app_path: Option<String>,
+        window_title: Option<String>,
+        start_str: String,
+        end_str: String,
+        duration: i64,
+        date_str: String,
+        hour: i32,
+    }
+
+    let record = {
+        let mut current_state = state.lock().map_err(|e| e.to_string())?;
+
+        let app = current_state.last_app.clone();
+        let start = current_state.last_start;
+
+        if let (Some(ref app), Some(start)) = (&app, start) {
+            if app != "AFK" {
+                let duration = (now - start).num_seconds();
+                let is_ignored = should_ignore_app(db, app);
+
+                if duration > 0 {
+                    current_state.last_start = Some(now);
+
+                    if !is_ignored {
+                        let start_str = start.format("%Y-%m-%d %H:%M:%S").to_string();
+                        let end_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
+                        let hour = start.format("%H").to_string().parse::<i32>().unwrap_or(0);
+                        let date_str = start.format("%Y-%m-%d").to_string();
+
+                        Some(FlushRecord {
+                            app: app.clone(),
+                            app_path: current_state.last_app_path.clone(),
+                            window_title: current_state.last_window_title.clone(),
+                            start_str,
+                            end_str,
+                            duration,
+                            date_str,
+                            hour,
+                        })
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                current_state.last_start = Some(now);
+                None
             }
+        } else {
+            None
         }
-        current_state.last_start = Some(now);
+    };
+
+    if let Some(r) = record {
+        db.insert_usage(
+            &r.app,
+            r.app_path.as_deref(),
+            r.window_title.as_deref(),
+            &r.start_str,
+            &r.end_str,
+            r.duration,
+            &r.date_str,
+            r.hour,
+        )?;
     }
 
     Ok(())
@@ -680,9 +725,10 @@ fn update_today_and_emit(
     app_handle: &AppHandle,
 ) {
     let today = Local::now().format("%Y-%m-%d").to_string();
+    let total = db.get_today_total_seconds(&today);
     let mut current_state = state.lock().unwrap();
 
-    if let Ok(total) = db.get_today_total_seconds(&today) {
+    if let Ok(total) = total {
         current_state.today_total_seconds = total;
     }
 
