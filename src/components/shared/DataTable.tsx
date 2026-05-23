@@ -47,7 +47,7 @@ function SortIcon({ dir }: { dir?: "asc" | "desc" }) {
   );
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T>({
   columns,
   data,
   pageSize,
