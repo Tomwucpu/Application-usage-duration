@@ -571,4 +571,151 @@ impl Database {
             .map_err(|e| e.to_string())?;
         Ok(deleted)
     }
+
+    pub fn get_all_app_metadata_list(&self) -> Result<Vec<AppMetadataItem>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT am.app_name, am.app_path, am.display_name, am.custom_icon_path, am.default_icon_path,
+                        COALESCE(SUM(ur.duration_seconds), 0) AS total_seconds,
+                        COUNT(ur.id) AS record_count
+                 FROM app_metadata am
+                 LEFT JOIN usage_records ur ON am.app_name = ur.app_name
+                 GROUP BY am.app_name
+                 ORDER BY total_seconds DESC",
+            )
+            .map_err(|e| e.to_string())?;
+        let items: Vec<AppMetadataItem> = stmt
+            .query_map([], |row| {
+                Ok(AppMetadataItem {
+                    app_name: row.get(0)?,
+                    app_path: row.get(1).ok(),
+                    display_name: row.get(2).ok(),
+                    custom_icon_path: row.get(3).ok(),
+                    default_icon_path: row.get(4).ok(),
+                    total_seconds: row.get::<_, i64>(5).unwrap_or(0),
+                    record_count: row.get::<_, i64>(6).unwrap_or(0),
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(items)
+    }
+
+    pub fn set_app_display_name(&self, app_name: &str, display_name: Option<&str>) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE app_metadata SET display_name = ?1 WHERE app_name = ?2",
+            params![display_name, app_name],
+        )
+        .map_err(|e| e.to_string())?;
+
+        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
+        *cache = None;
+
+        Ok(())
+    }
+
+    pub fn set_app_custom_icon(&self, app_name: &str, custom_icon_path: Option<&str>) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE app_metadata SET custom_icon_path = ?1 WHERE app_name = ?2",
+            params![custom_icon_path, app_name],
+        )
+        .map_err(|e| e.to_string())?;
+
+        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
+        *cache = None;
+
+        Ok(())
+    }
+
+    pub fn reset_app_display_name(&self, app_name: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE app_metadata SET display_name = NULL WHERE app_name = ?1",
+            params![app_name],
+        )
+        .map_err(|e| e.to_string())?;
+
+        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
+        *cache = None;
+
+        Ok(())
+    }
+
+    pub fn reset_app_custom_icon(&self, app_name: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE app_metadata SET custom_icon_path = NULL WHERE app_name = ?1",
+            params![app_name],
+        )
+        .map_err(|e| e.to_string())?;
+
+        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
+        *cache = None;
+
+        Ok(())
+    }
+
+    pub fn delete_records_by_app(&self, app_name: &str) -> Result<usize, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let deleted = conn
+            .execute(
+                "DELETE FROM usage_records WHERE app_name = ?1",
+                params![app_name],
+            )
+            .map_err(|e| e.to_string())?;
+        Ok(deleted)
+    }
+
+    pub fn rename_app(&self, old_name: &str, new_name: &str) -> Result<(), String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        conn.execute("BEGIN IMMEDIATE", []).map_err(|e| e.to_string())?;
+
+        let result = (|| -> Result<(), rusqlite::Error> {
+            conn.execute(
+                "UPDATE usage_records SET app_name = ?1 WHERE app_name = ?2",
+                params![new_name, old_name],
+            )?;
+            conn.execute(
+                "UPDATE app_metadata SET app_name = ?1 WHERE app_name = ?2",
+                params![new_name, old_name],
+            )?;
+            Ok(())
+        })();
+
+        match result {
+            Ok(()) => {
+                conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+                let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
+                *cache = None;
+                Ok(())
+            }
+            Err(e) => {
+                let _ = conn.execute("ROLLBACK", []);
+                Err(e.to_string())
+            }
+        }
+    }
+
+    pub fn get_app_display_names(&self) -> Result<HashMap<String, String>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare("SELECT app_name, display_name FROM app_metadata WHERE display_name IS NOT NULL")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|e| e.to_string())?;
+        let mut map = HashMap::new();
+        for row in rows {
+            if let Ok((name, display)) = row {
+                map.insert(name, display);
+            }
+        }
+        Ok(map)
+    }
 }
