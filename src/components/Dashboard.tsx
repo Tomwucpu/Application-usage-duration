@@ -5,7 +5,7 @@ import { useT } from "../i18n";
 import type { Locale } from "../i18n";
 import type { AppSummary } from "../types";
 import { AppRanking } from "./dashboard/AppRanking";
-import { DatePicker } from "./dashboard/DatePicker";
+import { getBreakdownRange } from "../utils/dates";
 
 const StackedBarChart = lazy(async () => {
   const mod = await import("./StackedBarChart");
@@ -32,31 +32,6 @@ function formatTime(seconds: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function fmtLocalDate(dt: Date): string {
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, "0");
-  const day = String(dt.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function getWeekRange(dateStr: string): { start: string; end: string } {
-  const d = new Date(dateStr + "T00:00:00");
-  const dayOfWeek = d.getDay();
-  const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + offsetToMonday);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  return { start: fmtLocalDate(monday), end: fmtLocalDate(sunday) };
-}
-
-function getMonthRange(dateStr: string): { start: string; end: string } {
-  const d = new Date(dateStr + "T00:00:00");
-  const first = new Date(d.getFullYear(), d.getMonth(), 1);
-  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  return { start: fmtLocalDate(first), end: fmtLocalDate(last) };
-}
-
 export function Dashboard() {
   const {
     tracker,
@@ -69,7 +44,6 @@ export function Dashboard() {
     viewMode,
     customStartDate,
     customEndDate,
-    setDate,
     loadHourlyBreakdown,
     loadRangeBreakdown,
   } = useStore(useShallow(
@@ -84,7 +58,6 @@ export function Dashboard() {
       viewMode: s.viewMode,
       customStartDate: s.customStartDate,
       customEndDate: s.customEndDate,
-      setDate: s.setDate,
       loadHourlyBreakdown: s.loadHourlyBreakdown,
       loadRangeBreakdown: s.loadRangeBreakdown,
     }),
@@ -94,16 +67,11 @@ export function Dashboard() {
   useEffect(() => {
     if (viewMode === "daily") {
       loadHourlyBreakdown(selectedDate);
-      const { start, end } = getWeekRange(selectedDate);
-      loadRangeBreakdown(start, end);
-    } else if (viewMode === "weekly") {
-      const { start, end } = getWeekRange(selectedDate);
-      loadRangeBreakdown(start, end);
-    } else if (viewMode === "monthly") {
-      const { start, end } = getMonthRange(selectedDate);
-      loadRangeBreakdown(start, end);
-    } else if (viewMode === "custom" && customStartDate && customEndDate) {
-      loadRangeBreakdown(customStartDate, customEndDate);
+    }
+
+    const range = getBreakdownRange(viewMode, selectedDate, customStartDate, customEndDate);
+    if (range) {
+      loadRangeBreakdown(range.start, range.end);
     }
   }, [viewMode, selectedDate, customStartDate, customEndDate, loadHourlyBreakdown, loadRangeBreakdown]);
 
@@ -180,11 +148,6 @@ export function Dashboard() {
             {formatTime(tracker.today_total_seconds)}
           </span>
         </div>
-      </div>
-
-      {/* Date picker */}
-      <div className="relative z-50 flex items-center rounded-3xl border border-slate-200/70 bg-slate-100/60 p-2 shadow-white/70 backdrop-blur dark:border-[#3f3f41] dark:bg-[#27272b]">
-        <DatePicker value={selectedDate} onChange={setDate} locale={locale} />
       </div>
 
       {/* Dashboard content */}

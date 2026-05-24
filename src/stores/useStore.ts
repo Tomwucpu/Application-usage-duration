@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
 import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown, UsageRecord, ViewMode, ImportBatchResult, ImportRecord, AppMetadataItem } from "../types";
+import { addDays, getBreakdownRange, getTodayString } from "../utils/dates";
 
 const shouldLogBaseline = typeof location !== "undefined" && location.hostname === "localhost";
 
@@ -154,27 +155,6 @@ interface Store {
   toggleAutoStart: () => Promise<void>;
 }
 
-function getWeekRange(dateStr: string): { start: string; end: string } {
-  const d = new Date(dateStr + "T00:00:00");
-  const dayOfWeek = d.getDay();
-  // Monday = 1, Sunday = 0 or 7 → offset to Monday
-  const offsetToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(d);
-  monday.setDate(d.getDate() + offsetToMonday);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const fmt = (dt: Date) => dt.toISOString().slice(0, 10);
-  return { start: fmt(monday), end: fmt(sunday) };
-}
-
-function getMonthRange(dateStr: string): { start: string; end: string } {
-  const d = new Date(dateStr + "T00:00:00");
-  const first = new Date(d.getFullYear(), d.getMonth(), 1);
-  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  const fmt = (dt: Date) => dt.toISOString().slice(0, 10);
-  return { start: fmt(first), end: fmt(last) };
-}
-
 export const useStore = create<Store>((set, get) => ({
   tracker: {
     is_running: false,
@@ -185,7 +165,7 @@ export const useStore = create<Store>((set, get) => ({
     today_total_seconds: 0,
   },
   summary: null,
-  selectedDate: new Date().toISOString().slice(0, 10),
+  selectedDate: getTodayString(),
   loading: false,
   activeTab: "dashboard",
   theme: (localStorage.getItem("theme") as Theme) || "dark",
@@ -269,16 +249,16 @@ export const useStore = create<Store>((set, get) => ({
 
       if (state.viewMode === "daily") {
         tasks.push(state.loadHourlyBreakdown(state.selectedDate, true));
-        const { start, end } = getWeekRange(state.selectedDate);
-        tasks.push(state.loadRangeBreakdown(start, end, true));
-      } else if (state.viewMode === "weekly") {
-        const { start, end } = getWeekRange(state.selectedDate);
-        tasks.push(state.loadRangeBreakdown(start, end, true));
-      } else if (state.viewMode === "monthly") {
-        const { start, end } = getMonthRange(state.selectedDate);
-        tasks.push(state.loadRangeBreakdown(start, end, true));
-      } else if (state.viewMode === "custom" && state.customStartDate && state.customEndDate) {
-        tasks.push(state.loadRangeBreakdown(state.customStartDate, state.customEndDate, true));
+      }
+
+      const range = getBreakdownRange(
+        state.viewMode,
+        state.selectedDate,
+        state.customStartDate,
+        state.customEndDate,
+      );
+      if (range) {
+        tasks.push(state.loadRangeBreakdown(range.start, range.end, true));
       }
 
       await Promise.all(tasks);
@@ -317,8 +297,8 @@ export const useStore = create<Store>((set, get) => ({
     set({ viewMode: mode });
     // Default custom range to last 7 days if switching to custom with no range set
     if (mode === "custom" && (!state.customStartDate || !state.customEndDate)) {
-      const today = new Date().toISOString().slice(0, 10);
-      const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+      const today = getTodayString();
+      const weekAgo = addDays(today, -6);
       set({ customStartDate: weekAgo, customEndDate: today });
     }
   },
@@ -354,8 +334,9 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   loadDailyBreakdown: async (date: string, force = false) => {
-    const { start, end } = getWeekRange(date);
-    await get().loadRangeBreakdown(start, end, force);
+    const range = getBreakdownRange("daily", date, null, null);
+    if (!range) return;
+    await get().loadRangeBreakdown(range.start, range.end, force);
   },
 
   ensureAppIconsLoaded: async (force = false) => {

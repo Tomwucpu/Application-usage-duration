@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "../../i18n";
+import { addDays, fmtLocalDate, parseDate, shiftCalendarMonth } from "../../utils/dates";
 
 interface DatePickerProps {
   value: string;
@@ -17,30 +18,9 @@ const TODAY_LABEL: Record<Locale, string> = {
   "en-US": "Today",
 };
 
-function toDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function parseDate(value: string): Date {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function addDays(value: string, days: number): string {
-  const date = parseDate(value);
-  date.setDate(date.getDate() + days);
-  return toDateString(date);
-}
-
-function addMonths(date: Date, months: number): Date {
-  return new Date(date.getFullYear(), date.getMonth() + months, 1);
-}
 
 function isSameDay(a: Date, b: Date): boolean {
-  return toDateString(a) === toDateString(b);
+  return fmtLocalDate(a) === fmtLocalDate(b);
 }
 
 function formatMonthTitle(date: Date, locale: Locale): string {
@@ -110,7 +90,7 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
   }, [visibleMonth]);
 
   const chooseDate = async (date: Date) => {
-    await onChange(toDateString(date));
+    await onChange(fmtLocalDate(date));
     setOpen(false);
   };
 
@@ -119,10 +99,10 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
   };
 
   const goToday = () => {
-    void onChange(toDateString(new Date()));
+    void onChange(fmtLocalDate(new Date()));
   };
 
-  const isTodaySelected = value === toDateString(new Date());
+  const isTodaySelected = value === fmtLocalDate(new Date());
 
   return (
     // 单日期选择
@@ -180,7 +160,7 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
           <div className="flex items-center justify-between px-1">
             <button
               type="button"
-              onClick={() => setVisibleMonth((month) => addMonths(month, -1))}
+              onClick={() => setVisibleMonth((month) => shiftCalendarMonth(month, -1))}
               className="calendar-month-button"
               aria-label={locale === "zh-CN" ? "上个月" : "Previous month"}
             >
@@ -193,7 +173,7 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
             </div>
             <button
               type="button"
-              onClick={() => setVisibleMonth((month) => addMonths(month, 1))}
+              onClick={() => setVisibleMonth((month) => shiftCalendarMonth(month, 1))}
               className="calendar-month-button"
               aria-label={locale === "zh-CN" ? "下个月" : "Next month"}
             >
@@ -210,7 +190,7 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
               </div>
             ))}
             {calendarDays.map((date) => {
-              const dateValue = toDateString(date);
+              const dateValue = fmtLocalDate(date);
               const selected = dateValue === value;
               const currentMonth = date.getMonth() === visibleMonth.getMonth();
               const currentToday = isSameDay(date, new Date());

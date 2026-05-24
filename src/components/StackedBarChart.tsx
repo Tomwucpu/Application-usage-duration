@@ -12,17 +12,11 @@ import {
 import type { HourlyAppBreakdown, DailyAppBreakdown } from "../types";
 import { useT } from "../i18n";
 import { useStore } from "../stores/useStore";
-import { DateRangePicker } from "./breakdown/DateRangePicker";
 import { CHART_COLORS, CHART_OTHER_COLOR } from "../themes/colors";
+import { getBreakdownRange, getDateList } from "../utils/dates";
+import { DateNavigator } from "./dashboard/DateNavigator";
 
 const TOP_N = 10;
-
-function fmtLocalDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 interface Props {
   hourlyData: HourlyAppBreakdown[];
@@ -51,12 +45,13 @@ function buildDailyChartData(
   const appTotals: Map<string, number> = new Map();
 
   for (const item of hourlyData) {
+    const name = getDisplayName(item.app_name);
     if (!hourApps.has(item.hour)) hourApps.set(item.hour, new Map());
-    const current = hourApps.get(item.hour)!.get(item.app_name) || 0;
-    hourApps.get(item.hour)!.set(item.app_name, current + item.total_seconds);
+    const current = hourApps.get(item.hour)!.get(name) || 0;
+    hourApps.get(item.hour)!.set(name, current + item.total_seconds);
     appTotals.set(
-      item.app_name,
-      (appTotals.get(item.app_name) || 0) + item.total_seconds,
+      name,
+      (appTotals.get(name) || 0) + item.total_seconds,
     );
   }
 
@@ -165,7 +160,6 @@ function CustomTooltip({
   const total = sorted.reduce((sum, p) => sum + p.value, 0);
 
   return (
-    // tooltip 的内容容器，显示在鼠标悬停时
     <div className="bg-white dark:bg-[#1d1d20] border border-slate-200 dark:border-[#3f3f41] rounded-lg px-3 py-2 shadow-xl">
       <div className="text-slate-800 dark:text-slate-200 font-medium text-sm mb-1">{label}</div>
       <div className="space-y-0.5">
@@ -206,69 +200,79 @@ function CustomTooltip({
   );
 }
 
+function BreakdownHeader({
+  title,
+  rangeTitle,
+  selectedDate,
+  viewMode,
+  customStartDate,
+  customEndDate,
+  onDateChange,
+  onViewModeChange,
+  onCustomRangeChange,
+}: {
+  title: string;
+  rangeTitle: string;
+  selectedDate: string;
+  viewMode: "daily" | "weekly" | "monthly" | "custom";
+  customStartDate: string | null;
+  customEndDate: string | null;
+  onDateChange: (date: string) => void | Promise<void>;
+  onViewModeChange: (mode: "daily" | "weekly" | "monthly" | "custom") => void;
+  onCustomRangeChange: (start: string, end: string) => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          {title}
+        </h2>
+        {rangeTitle && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{rangeTitle}</p>
+        )}
+      </div>
+      <DateNavigator
+        selectedDate={selectedDate}
+        viewMode={viewMode}
+        customStartDate={customStartDate}
+        customEndDate={customEndDate}
+        onDateChange={onDateChange}
+        onViewModeChange={onViewModeChange}
+        onCustomRangeChange={onCustomRangeChange}
+      />
+    </div>
+  );
+}
+
 export function StackedBarChart({ hourlyData, dailyData }: Props) {
   const { t, locale } = useT();
   const selectedDate = useStore((s) => s.selectedDate);
   const viewMode = useStore((s) => s.viewMode);
-  const setViewMode = useStore((s) => s.setViewMode);
   const customStartDate = useStore((s) => s.customStartDate);
   const customEndDate = useStore((s) => s.customEndDate);
+  const setDate = useStore((s) => s.setDate);
+  const setViewMode = useStore((s) => s.setViewMode);
   const setCustomRange = useStore((s) => s.setCustomRange);
   const othersLabel = t("chart.others");
   const [hoveredApp, setHoveredApp] = useState<string | null>(null);
 
   const dateList = useMemo(() => {
-    if (viewMode === "daily") return [];
-    const dates: { date: string; label: string }[] = [];
-    let start: Date;
-    let end: Date;
-    if (viewMode === "weekly") {
-      const ref = new Date(selectedDate + "T00:00:00");
-      const refDay = ref.getDay();
-      const offsetToMonday = refDay === 0 ? -6 : 1 - refDay;
-      start = new Date(ref);
-      start.setDate(ref.getDate() + offsetToMonday);
-      end = new Date(start);
-      end.setDate(start.getDate() + 6);
-    } else if (viewMode === "monthly") {
-      const ref = new Date(selectedDate + "T00:00:00");
-      start = new Date(ref.getFullYear(), ref.getMonth(), 1);
-      end = new Date(ref.getFullYear(), ref.getMonth() + 1, 0);
-    } else {
-      // custom - use the dates from dailyData directly
-      return [];
-    }
-    const showWeekday = viewMode === "weekly";
-    const d = new Date(start);
-    while (d <= end) {
-      const iso = fmtLocalDate(d);
-      const label = d.toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
-        weekday: showWeekday ? "short" : undefined,
-        month: "numeric",
-        day: "numeric",
-      });
-      dates.push({ date: iso, label });
-      d.setDate(d.getDate() + 1);
-    }
-    return dates;
-  }, [viewMode, selectedDate, locale]);
+    if (viewMode === "daily" || viewMode === "custom") return [];
+    const range = getBreakdownRange(viewMode, selectedDate, customStartDate, customEndDate);
+    if (!range) return [];
+    return getDateList(range.start, range.end, locale, {
+      weekday: viewMode === "weekly" ? "short" : undefined,
+      month: "numeric",
+      day: "numeric",
+    });
+  }, [viewMode, selectedDate, customStartDate, customEndDate, locale]);
 
   const customDates = useMemo(() => {
     if (viewMode !== "custom" || !customStartDate || !customEndDate) return [];
-    const dates: { date: string; label: string }[] = [];
-    const start = new Date(customStartDate + "T00:00:00");
-    const end = new Date(customEndDate + "T00:00:00");
-    const d = new Date(start);
-    while (d <= end) {
-      const iso = fmtLocalDate(d);
-      const label = d.toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
-        month: "short",
-        day: "numeric",
-      });
-      dates.push({ date: iso, label });
-      d.setDate(d.getDate() + 1);
-    }
-    return dates;
+    return getDateList(customStartDate, customEndDate, locale, {
+      month: "short",
+      day: "numeric",
+    });
   }, [viewMode, customStartDate, customEndDate, locale]);
 
   const rangeTitle = useMemo(() => {
@@ -311,41 +315,17 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
   if (!hasEntries) {
     return (
       <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
-        {/* View title + switcher */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-              {t("breakdown.title")}
-            </h2>
-            {rangeTitle && (
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{rangeTitle}</p>
-            )}
-          </div>
-          <div className="inline-flex bg-slate-100 dark:bg-slate-950/50 rounded-lg p-1 border border-slate-200 dark:border-slate-800/60">
-            {(["daily", "weekly", "monthly", "custom"] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
-                  viewMode === mode
-                    ? "bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800/50"
-                }`}
-              >
-                {t(`breakdown.${mode}`)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {viewMode === "custom" && (
-          <DateRangePicker
-            startDate={customStartDate}
-            endDate={customEndDate}
-            onChange={setCustomRange}
-            locale={locale}
-          />
-        )}
+        <BreakdownHeader
+          title={t("breakdown.title")}
+          rangeTitle={rangeTitle}
+          selectedDate={selectedDate}
+          viewMode={viewMode}
+          customStartDate={customStartDate}
+          customEndDate={customEndDate}
+          onDateChange={setDate}
+          onViewModeChange={setViewMode}
+          onCustomRangeChange={setCustomRange}
+        />
 
         <div className="text-center text-slate-500 dark:text-slate-400 py-12">
           {t("breakdown.noData")}
@@ -357,42 +337,17 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
   return (
     // 应用使用分布组件
     <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
-      {/* View title + switcher */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            {t("breakdown.title")}
-          </h2>
-          {rangeTitle && (
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{rangeTitle}</p>
-          )}
-        </div>
-        {/* 视图切换 */}
-        <div className="inline-flex bg-slate-100 dark:bg-[#1d1d20] rounded-lg p-1 border border-slate-200 dark:border-[#3f3f41]">
-          {(["daily", "weekly", "monthly", "custom"] as const).map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setViewMode(mode)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all duration-200 ${
-                viewMode === mode
-                  ? "bg-[#0060df] dark:bg-[#0060df] text-[#ffffff] dark:text-[#ffffff] shadow-sm"
-                  : "text-[#a9a9af] dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#27272b]"
-              }`}
-            >
-              {t(`breakdown.${mode}`)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {viewMode === "custom" && (
-        <DateRangePicker
-          startDate={customStartDate}
-          endDate={customEndDate}
-          onChange={setCustomRange}
-          locale={locale}
-        />
-      )}
+      <BreakdownHeader
+        title={t("breakdown.title")}
+        rangeTitle={rangeTitle}
+        selectedDate={selectedDate}
+        viewMode={viewMode}
+        customStartDate={customStartDate}
+        customEndDate={customEndDate}
+        onDateChange={setDate}
+        onViewModeChange={setViewMode}
+        onCustomRangeChange={setCustomRange}
+      />
 
       {/* Chart */}
       <div className="w-full h-[400px]">
