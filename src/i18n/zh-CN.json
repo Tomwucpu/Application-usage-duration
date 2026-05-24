@@ -130,5 +130,6 @@
   "appManagement.saveSuccess": "保存成功",
   "appManagement.saveFailed": "保存失败，请重试",
   "appManagement.clickToEdit": "点击编辑",
-  "appManagement.browseIcon": "浏览"
+  "appManagement.browseIcon": "浏览",
+  "appManagement.imageFiles": "图片文件"
 }

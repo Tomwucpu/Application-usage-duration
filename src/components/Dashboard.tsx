@@ -70,7 +70,6 @@ export function Dashboard() {
     customStartDate,
     customEndDate,
     setDate,
-    refresh,
     loadHourlyBreakdown,
     loadRangeBreakdown,
   } = useStore(useShallow(
@@ -86,7 +85,6 @@ export function Dashboard() {
       customStartDate: s.customStartDate,
       customEndDate: s.customEndDate,
       setDate: s.setDate,
-      refresh: s.refresh,
       loadHourlyBreakdown: s.loadHourlyBreakdown,
       loadRangeBreakdown: s.loadRangeBreakdown,
     }),
@@ -184,16 +182,9 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Date picker + refresh */}
-      <div className="relative z-50 flex items-center justify-between gap-3 rounded-3xl border border-slate-200/70 bg-slate-100/60 p-2 shadow-white/70 backdrop-blur dark:border-[#3f3f41] dark:bg-[#27272b]">
+      {/* Date picker */}
+      <div className="relative z-50 flex items-center rounded-3xl border border-slate-200/70 bg-slate-100/60 p-2 shadow-white/70 backdrop-blur dark:border-[#3f3f41] dark:bg-[#27272b]">
         <DatePicker value={selectedDate} onChange={setDate} locale={locale} />
-        <button
-          onClick={() => refresh()}
-          disabled={loading}
-          className="rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-2.5 text-sm font-semibold text-slate-700 shrink-0 transition-colors duration-200 disabled:opacity-50 dark:border-[#3f3f41] dark:bg-[#1d1d20] dark:text-slate-300"
-        >
-          {loading ? t("refresh.loading") : t("refresh")}
-        </button>
       </div>
 
       {/* Dashboard content */}

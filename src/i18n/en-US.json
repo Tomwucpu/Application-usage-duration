@@ -130,5 +130,6 @@
   "appManagement.saveSuccess": "Saved successfully",
   "appManagement.saveFailed": "Save failed. Please try again.",
   "appManagement.clickToEdit": "Click to edit",
-  "appManagement.browseIcon": "Browse"
+  "appManagement.browseIcon": "Browse",
+  "appManagement.imageFiles": "Image files"
 }

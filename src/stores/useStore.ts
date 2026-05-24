@@ -247,7 +247,7 @@ export const useStore = create<Store>((set, get) => ({
     set({ selectedDate: date });
     const [summary] = await Promise.all([
       invoke<DailySummary>("get_daily_summary", { date }),
-      get().ensureAppIconsLoaded(),
+      get().ensureAppIconsLoaded(true),
     ]);
     set({ summary });
   },
@@ -264,7 +264,7 @@ export const useStore = create<Store>((set, get) => ({
         invoke<number>("get_today_total_seconds").then((seconds) => {
           set((s) => ({ tracker: { ...s.tracker, today_total_seconds: seconds } }));
         }),
-        state.ensureAppIconsLoaded(),
+        state.ensureAppIconsLoaded(true),
       ];
 
       if (state.viewMode === "daily") {

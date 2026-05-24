@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 import { DataTable, type Column } from "../shared/DataTable";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
 import { api } from "../../stores/useStore";
@@ -250,17 +251,42 @@ export function AppTable({ data, search, t, pushToast, onRefresh, appIcons }: Ap
       key: "icon_path",
       header: t("appManagement.iconPath"),
       sortable: false,
-      width: "200px",
+      width: "220px",
       render: (item) => {
         const iconPath = item.custom_icon_path || item.default_icon_path || item.app_path || "";
         return (
-          <EditableCell
-            value={iconPath}
-            placeholder={t("appManagement.clickToEdit")}
-            showReset={!!item.custom_icon_path}
-            onSave={(val) => handleSaveCustomIcon(item.app_name, val)}
-            onReset={() => setConfirm({ type: "resetIcon", appName: item.app_name })}
-          />
+          <div className="flex items-center gap-1 min-w-0">
+            <EditableCell
+              value={iconPath}
+              placeholder={t("appManagement.clickToEdit")}
+              showReset={!!item.custom_icon_path}
+              onSave={(val) => handleSaveCustomIcon(item.app_name, val)}
+              onReset={() => setConfirm({ type: "resetIcon", appName: item.app_name })}
+            />
+            <button
+              onClick={async () => {
+                const selected = await open({
+                  multiple: false,
+                  filters: [
+                    {
+                      name: t("appManagement.imageFiles") || "Images",
+                      extensions: ["png", "jpg", "jpeg", "gif", "bmp", "ico"],
+                    },
+                  ],
+                });
+                if (selected) {
+                  await handleSaveCustomIcon(item.app_name, selected);
+                }
+              }}
+              title={t("appManagement.browseIcon")}
+              className="shrink-0 text-slate-400 hover:text-[#1369ea] dark:text-slate-500 dark:hover:text-[#1369ea] transition-colors"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M4 17a1 1 0 01-1-1V5.5A2.5 2.5 0 015.5 3H8l2 2h4.5A2.5 2.5 0 0117 7.5V16a1 1 0 01-1 1H4z" />
+                <path d="M10 8v6M7 11h6" />
+              </svg>
+            </button>
+          </div>
         );
       },
     },

@@ -454,6 +454,14 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
 
     let hook = register_hook();
 
+    // Capture current foreground window as initial event,
+    // so tracking works immediately without needing a window switch.
+    #[cfg(target_os = "windows")]
+    if let Some(sender) = HOOK_SENDER.get() {
+        let hwnd = unsafe { windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow() };
+        let _ = sender.send(ForegroundEvent { hwnd: hwnd.0 });
+    }
+
     std::thread::spawn(move || {
         let name_cache = NameCache::new();
         let mut persisted_metadata: std::collections::HashSet<String> =

@@ -49,6 +49,32 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
         DestroyIcon, DrawIconEx, GetIconInfo, DI_NORMAL, ICONINFO,
     };
 
+    // If the path is an image file (png/jpg/gif/bmp/ico), load it directly
+    let ext = std::path::Path::new(exe_path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase());
+    if matches!(
+        ext.as_deref(),
+        Some("png" | "jpg" | "jpeg" | "gif" | "bmp" | "ico")
+    ) {
+        if let Ok(img) = image::open(exe_path) {
+            let rgba = img
+                .resize_exact(32, 32, image::imageops::FilterType::Lanczos3)
+                .to_rgba8();
+            let mut png_bytes = Vec::new();
+            let encoder = image::codecs::png::PngEncoder::new(&mut png_bytes);
+            encoder
+                .write_image(&rgba, 32, 32, image::ExtendedColorType::Rgba8)
+                .ok()?;
+            let b64 = base64::Engine::encode(
+                &base64::engine::general_purpose::STANDARD,
+                &png_bytes,
+            );
+            return Some(b64);
+        }
+    }
+
     unsafe {
         let path_wide: Vec<u16> = exe_path.encode_utf16().chain(std::iter::once(0)).collect();
 
