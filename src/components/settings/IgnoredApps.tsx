@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useStore, api } from "../../stores/useStore";
 import { getDisplayName } from "../AppNames";
+import { Switch } from "../shared/Switch";
 
 interface IgnoredAppsProps {
   t: (key: string) => string;
@@ -62,21 +63,11 @@ export function IgnoredApps({ t }: IgnoredAppsProps) {
     <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">{t("settings.ignored.title")}</h3>
-        <button
-          role="switch"
-          aria-checked={ignoredEnabled}
-          onClick={toggleIgnoredEnabled}
-          className={`relative inline-flex h-5 w-[38px] items-center rounded-full transition-colors ${
-            ignoredEnabled ? "bg-[#1170ff]" : "bg-[#1170ff] dark:bg-slate-700"
-          }`}
-          aria-label={t("settings.ignored.title")}
-        >
-          <span
-            className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${
-              ignoredEnabled ? "translate-x-5" : "translate-x-1"
-            }`}
-          />
-        </button>
+        <Switch
+          checked={ignoredEnabled}
+          onChange={toggleIgnoredEnabled}
+          ariaLabel={t("settings.ignored.title")}
+        />
       </div>
       <div
         className={`grid grid-cols-2 gap-2 overflow-hidden transition-[max-height,opacity,transform] duration-300 ease-in-out ${
