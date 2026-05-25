@@ -1,15 +1,13 @@
 import { useT } from "../../i18n";
 import type { Locale } from "../../i18n";
-import { useStore } from "../../stores/useStore";
 import { CHART_COLORS } from "../../themes/colors";
-import { getDisplayName } from "../AppNames";
-
-import type { AppSummary } from "../../types";
+import type { UsageRankingItem } from "../../types";
 
 interface Props {
-  apps: AppSummary[];
+  items: UsageRankingItem[];
   totalSeconds: number;
   loading: boolean;
+  title: string;
 }
 
 function formatDuration(seconds: number, locale: Locale): string {
@@ -22,11 +20,20 @@ function formatDuration(seconds: number, locale: Locale): string {
   return `${m}m`;
 }
 
-function AppIcon({ base64, name }: { base64: string; name: string }) {
-  if (base64) {
+function RankingIcon({ icon, name }: { icon?: string | null; name: string }) {
+  if (icon) {
+    if (icon.startsWith("/")) {
+      return (
+        <img
+          src={icon}
+          alt={name}
+          className="w-6 h-6 rounded-md flex-shrink-0"
+        />
+      );
+    }
     return (
       <img
-        src={`data:image/png;base64,${base64}`}
+        src={`data:image/png;base64,${icon}`}
         alt={name}
         className="w-6 h-6 rounded-md flex-shrink-0 mt-1"
       />
@@ -39,46 +46,41 @@ function AppIcon({ base64, name }: { base64: string; name: string }) {
   );
 }
 
-export function AppRanking({ apps, totalSeconds, loading }: Props) {
+export function AppRanking({ items, totalSeconds, loading, title }: Props) {
   const { t, locale } = useT();
-  const appIcons = useStore((s) => s.appIcons);
-  const topApps = apps.slice(0, 15);
+  const topItems = items.slice(0, 15);
 
   return (
     <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 shadow-sm dark:shadow-none">
-      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">{t("chart.ranking")}</h2>
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">{title}</h2>
 
-      {topApps.length === 0 && (
+      {topItems.length === 0 && (
         <div className="text-center text-slate-500 dark:text-slate-400 py-8">
           {loading ? t("loading") : t("breakdown.noData")}
         </div>
       )}
 
       <div className="space-y-3">
-        {topApps.map((app, i) => {
+        {topItems.map((item, i) => {
           const pct = totalSeconds > 0
-            ? Math.round((app.total_seconds / totalSeconds) * 100)
+            ? Math.round((item.total_seconds / totalSeconds) * 100)
             : 0;
-          const displayName = getDisplayName(app.app_name);
 
           return (
-            <div key={app.app_name} className="flex items-center gap-4 group">
-              {/* Rank */}
+            <div key={item.key} className="flex items-center gap-4 group">
               <span className="w-6 text-right text-xs text-slate-500 tabular-nums mt-1">
                 {i + 1}
               </span>
 
-              {/* Icon */}
-              <AppIcon base64={appIcons[app.app_name] || ""} name={displayName} />
+              <RankingIcon icon={item.icon} name={item.label} />
 
-              {/* Name + bar */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-0.5">
                   <span className="text-sm text-slate-800 dark:text-slate-200 truncate">
-                    {displayName}
+                    {item.label}
                   </span>
                   <span className="text-xs text-slate-500 dark:text-slate-400 ml-2 flex-shrink-0">
-                    {formatDuration(app.total_seconds, locale)}
+                    {formatDuration(item.total_seconds, locale)}
                   </span>
                 </div>
                 <div className="h-1.5 bg-slate-100 dark:bg-[#1d1d20] rounded-full overflow-hidden">
@@ -92,7 +94,6 @@ export function AppRanking({ apps, totalSeconds, loading }: Props) {
                 </div>
               </div>
 
-              {/* Percentage */}
               <span className="w-10 text-xs text-slate-500 dark:text-slate-400 tabular-nums text-right">
                 {pct}%
               </span>

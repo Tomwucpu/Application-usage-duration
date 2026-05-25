@@ -1,9 +1,11 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { DataTable, type Column } from "../shared/DataTable";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
+import { EditableCell } from "../shared/EditableCell";
+import { DropdownMenu } from "../shared/DropdownMenu";
 import { api } from "../../stores/useStore";
-import type { AppMetadataItem } from "../../types";
+import type { AppMetadataItem, CategoryItem } from "../../types";
 import type { ToastTone } from "../shared/ToastStack";
 
 function formatDuration(totalSeconds: number): string {
@@ -13,93 +15,9 @@ function formatDuration(totalSeconds: number): string {
   return `${m}m`;
 }
 
-interface EditableCellProps {
-  value: string;
-  placeholder: string;
-  onSave: (value: string) => Promise<void>;
-  onReset?: () => void;
-  showReset?: boolean;
-}
-
-function EditableCell({ value, placeholder, onSave, onReset, showReset }: EditableCellProps) {
-  const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
-  const [saving, setSaving] = useState(false);
-
-  const handleStartEdit = () => {
-    setEditValue(value);
-    setEditing(true);
-  };
-
-  const handleSave = useCallback(async () => {
-    const trimmed = editValue.trim();
-    if (trimmed === value.trim()) {
-      setEditing(false);
-      return;
-    }
-    setSaving(true);
-    try {
-      await onSave(trimmed || "");
-      setEditing(false);
-    } catch {
-      // Error handled by parent via pushToast — stay in editing mode
-    } finally {
-      setSaving(false);
-    }
-  }, [editValue, value, onSave]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSave();
-    if (e.key === "Escape") {
-      setEditValue(value);
-      setEditing(false);
-    }
-  };
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1.5">
-        <input
-          type="text"
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleSave}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={saving}
-          autoFocus
-          className="w-full px-2 py-1 text-sm border border-slate-200 dark:border-[#3f3f41] rounded bg-white dark:bg-[#1d1d20] text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#1369ea] disabled:opacity-50"
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-2 group min-w-0">
-      <span
-        onClick={handleStartEdit}
-        title={value || placeholder}
-        className={`cursor-pointer truncate block ${value ? "text-slate-700 dark:text-slate-300" : "text-slate-400 dark:text-slate-500 italic text-xs"}`}
-      >
-        {value || placeholder}
-      </span>
-      {showReset && onReset && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onReset(); }}
-          title="Reset"
-          className="shrink-0 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 transition-opacity"
-        >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-          </svg>
-        </button>
-      )}
-    </div>
-  );
-}
-
 interface AppTableProps {
   data: AppMetadataItem[];
+  categories: CategoryItem[];
   search: string;
   t: (key: string) => string;
   pushToast: (tone: ToastTone, message: string) => void;
@@ -112,7 +30,7 @@ interface ConfirmState {
   appName: string;
 }
 
-export function AppTable({ data, search, t, pushToast, onRefresh, appIcons }: AppTableProps) {
+export function AppTable({ data, categories, search, t, pushToast, onRefresh, appIcons }: AppTableProps) {
   const [pageSize, setPageSize] = useState(10);
   const [sortKey, setSortKey] = useState("total_seconds");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -123,8 +41,9 @@ export function AppTable({ data, search, t, pushToast, onRefresh, appIcons }: Ap
     const q = search.toLowerCase();
     return data.filter(
       (item) =>
-        item.app_name.toLowerCase().includes(q) ||
-        (item.display_name && item.display_name.toLowerCase().includes(q))
+        item.app_name.toLowerCase().includes(q)
+        || (item.display_name && item.display_name.toLowerCase().includes(q))
+        || (item.category_name && item.category_name.toLowerCase().includes(q)),
     );
   }, [data, search]);
 
@@ -136,6 +55,9 @@ export function AppTable({ data, search, t, pushToast, onRefresh, appIcons }: Ap
         const nameA = a.display_name || a.app_name;
         const nameB = b.display_name || b.app_name;
         return nameA.localeCompare(nameB) * dir;
+      }
+      if (sortKey === "category_name") {
+        return (a.category_name || "").localeCompare(b.category_name || "") * dir;
       }
       if (sortKey === "total_seconds") {
         return (a.total_seconds - b.total_seconds) * dir;
@@ -211,6 +133,16 @@ export function AppTable({ data, search, t, pushToast, onRefresh, appIcons }: Ap
     }
   };
 
+  const handleSaveCategory = async (appName: string, categoryId: number) => {
+    try {
+      await api.setAppCategory(appName, categoryId);
+      await onRefresh();
+      pushToast("success", t("appManagement.saveSuccess"));
+    } catch {
+      pushToast("error", t("appManagement.saveFailed"));
+    }
+  };
+
   const columns: Column<AppMetadataItem>[] = [
     {
       key: "icon",
@@ -230,7 +162,7 @@ export function AppTable({ data, search, t, pushToast, onRefresh, appIcons }: Ap
       key: "display_name",
       header: t("appManagement.appName"),
       sortable: true,
-      width: "180px",
+      width: "120px",
       render: (item) => {
         const displayValue = item.display_name || item.app_name;
         return (
@@ -244,6 +176,39 @@ export function AppTable({ data, search, t, pushToast, onRefresh, appIcons }: Ap
             }}
             onReset={() => setConfirm({ type: "resetName", appName: item.app_name })}
           />
+        );
+      },
+    },
+    {
+      key: "category_name",
+      header: t("appManagement.category"),
+      sortable: true,
+      width: "140px",
+      render: (item) => {
+        const currentCategory = categories.find((c) => c.id === item.category_id);
+        return (
+          <DropdownMenu
+            label={currentCategory?.name || t("appManagement.noCategory")}
+            minWidthClassName="w-full"
+            scrollable
+          >
+            {({ close }) => (
+              <>
+                {categories.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => {
+                      handleSaveCategory(item.app_name, category.id);
+                      close();
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#27272b] rounded"
+                  >
+                    {category.name}
+                  </button>
+                ))}
+              </>
+            )}
+          </DropdownMenu>
         );
       },
     },

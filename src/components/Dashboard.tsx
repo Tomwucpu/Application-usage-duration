@@ -3,8 +3,10 @@ import { useStore } from "../stores/useStore";
 import { useShallow } from "zustand/react/shallow";
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
-import type { AppSummary } from "../types";
+import type { AppSummary, CategorySummaryItem, UsageRankingItem } from "../types";
 import { AppRanking } from "./dashboard/AppRanking";
+import { getDisplayName } from "./AppNames";
+import { BUILTIN_CATEGORY_ICONS } from "./CategoryIcons";
 import { getBreakdownRange } from "../utils/dates";
 
 const StackedBarChart = lazy(async () => {
@@ -36,30 +38,50 @@ export function Dashboard() {
   const {
     tracker,
     summary,
+    categorySummary,
     selectedDate,
     loading,
+    groupBy,
+    appIcons,
+    categoryFileIcons,
     hourlyBreakdown,
     rangeBreakdown,
     rangeBreakdownRange,
+    hourlyCategoryBreakdown,
+    rangeCategoryBreakdown,
     viewMode,
     customStartDate,
     customEndDate,
     loadHourlyBreakdown,
     loadRangeBreakdown,
+    loadCategorySummary,
+    loadHourlyCategoryBreakdown,
+    loadRangeCategoryBreakdown,
+    setGroupBy,
   } = useStore(useShallow(
     (s) => ({
       tracker: s.tracker,
       summary: s.summary,
+      categorySummary: s.categorySummary,
       selectedDate: s.selectedDate,
       loading: s.loading,
+      groupBy: s.groupBy,
+      appIcons: s.appIcons,
+      categoryFileIcons: s.categoryFileIcons,
       hourlyBreakdown: s.hourlyBreakdown,
       rangeBreakdown: s.rangeBreakdown,
       rangeBreakdownRange: s.rangeBreakdownRange,
+      hourlyCategoryBreakdown: s.hourlyCategoryBreakdown,
+      rangeCategoryBreakdown: s.rangeCategoryBreakdown,
       viewMode: s.viewMode,
       customStartDate: s.customStartDate,
       customEndDate: s.customEndDate,
       loadHourlyBreakdown: s.loadHourlyBreakdown,
       loadRangeBreakdown: s.loadRangeBreakdown,
+      loadCategorySummary: s.loadCategorySummary,
+      loadHourlyCategoryBreakdown: s.loadHourlyCategoryBreakdown,
+      loadRangeCategoryBreakdown: s.loadRangeCategoryBreakdown,
+      setGroupBy: s.setGroupBy,
     }),
   ));
   const { t, locale } = useT();
@@ -67,15 +89,29 @@ export function Dashboard() {
   useEffect(() => {
     if (viewMode === "daily") {
       loadHourlyBreakdown(selectedDate);
+      loadHourlyCategoryBreakdown(selectedDate);
     }
+
+    loadCategorySummary(selectedDate);
 
     const range = getBreakdownRange(viewMode, selectedDate, customStartDate, customEndDate);
     if (range) {
       loadRangeBreakdown(range.start, range.end);
+      loadRangeCategoryBreakdown(range.start, range.end);
     }
-  }, [viewMode, selectedDate, customStartDate, customEndDate, loadHourlyBreakdown, loadRangeBreakdown]);
+  }, [
+    viewMode,
+    selectedDate,
+    customStartDate,
+    customEndDate,
+    loadHourlyBreakdown,
+    loadRangeBreakdown,
+    loadCategorySummary,
+    loadHourlyCategoryBreakdown,
+    loadRangeCategoryBreakdown,
+  ]);
 
-  const displaySummary = useMemo(() => {
+  const appDisplaySummary = useMemo(() => {
     if (viewMode === "daily") {
       return summary || null;
     }
@@ -106,9 +142,89 @@ export function Dashboard() {
     };
   }, [viewMode, summary, rangeBreakdown, rangeBreakdownRange]);
 
+  const categoryDisplaySummary = useMemo(() => {
+    if (viewMode === "daily") {
+      const total = categorySummary.reduce((sum, item) => sum + item.total_seconds, 0);
+      return {
+        total_seconds: total,
+        items: categorySummary,
+      };
+    }
+    if (!rangeCategoryBreakdown || rangeCategoryBreakdown.length === 0) {
+      return { total_seconds: 0, items: [] as CategorySummaryItem[] };
+    }
+
+    const categoryMap = new Map<number, CategorySummaryItem>();
+    let totalSecs = 0;
+    for (const item of rangeCategoryBreakdown) {
+      totalSecs += item.total_seconds;
+      const existing = categoryMap.get(item.category_id);
+      if (existing) {
+        existing.total_seconds += item.total_seconds;
+      } else {
+        categoryMap.set(item.category_id, {
+          category_id: item.category_id,
+          category_name: item.category_name,
+          icon_source: item.icon_source,
+          builtin_icon_key: item.builtin_icon_key,
+          custom_icon_path: item.custom_icon_path,
+          total_seconds: item.total_seconds,
+          percentage: 0,
+        });
+      }
+    }
+
+    const items = [...categoryMap.values()]
+      .map((item) => ({
+        ...item,
+        percentage: totalSecs > 0 ? (item.total_seconds / totalSecs) * 100 : 0,
+      }))
+      .sort((a, b) => b.total_seconds - a.total_seconds);
+
+    return {
+      total_seconds: totalSecs,
+      items,
+    };
+  }, [viewMode, categorySummary, rangeCategoryBreakdown]);
+
+  const rankingItems = useMemo<UsageRankingItem[]>(() => {
+    if (groupBy === "app") {
+      return (appDisplaySummary?.apps || []).map((app) => ({
+        key: app.app_name,
+        label: getDisplayName(app.app_name),
+        icon: appIcons[app.app_name] || null,
+        total_seconds: app.total_seconds,
+        percentage: app.percentage,
+      }));
+    }
+
+    return categoryDisplaySummary.items.map((category) => {
+      let icon: string | null = null;
+      if (category.icon_source === "file") {
+        icon = categoryFileIcons[category.category_id] || null;
+      } else if (category.icon_source === "builtin" && category.builtin_icon_key) {
+        const iconDef = BUILTIN_CATEGORY_ICONS.find((i) => i.key === category.builtin_icon_key);
+        if (iconDef) icon = iconDef.svg;
+      }
+      return {
+        key: String(category.category_id),
+        label: category.category_name,
+        icon,
+        total_seconds: category.total_seconds,
+        percentage: category.percentage,
+      };
+    });
+  }, [groupBy, appDisplaySummary, appIcons, categoryDisplaySummary, categoryFileIcons]);
+
+  const totalSeconds = groupBy === "app"
+    ? (appDisplaySummary?.total_seconds || 0)
+    : categoryDisplaySummary.total_seconds;
+  const count = groupBy === "app"
+    ? (appDisplaySummary?.apps.length || 0)
+    : categoryDisplaySummary.items.length;
+
   return (
     <div className="space-y-6">
-      {/* Status bar */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <span
@@ -150,38 +266,60 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Dashboard content */}
-      <>
-        {displaySummary ? (
-          <>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
-                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.total")}</div>
-                <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
-                  {formatDuration(displaySummary.total_seconds, locale)}
-                </div>
-              </div>
-              <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
-                <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.apps")}</div>
-                <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
-                  {displaySummary.apps.length}
-                </div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setGroupBy("app")}
+          className={`px-3 py-1.5 text-sm rounded-lg border ${groupBy === "app" ? "bg-[#1369ea] text-white border-[#1369ea]" : "border-slate-200 dark:border-[#3f3f41] hover:bg-slate-100 dark:hover:bg-[#27272b]"}`}
+        >
+          {t("groupBy.app")}
+        </button>
+        <button
+          onClick={() => setGroupBy("category")}
+          className={`px-3 py-1.5 text-sm rounded-lg border ${groupBy === "category" ? "bg-[#1369ea] text-white border-[#1369ea]" : "border-slate-200 dark:border-[#3f3f41] hover:bg-slate-100 dark:hover:bg-[#27272b]"}`}
+        >
+          {t("groupBy.category")}
+        </button>
+      </div>
+
+      {(groupBy === "app" ? appDisplaySummary : categoryDisplaySummary) ? (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
+              <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">{t("summary.total")}</div>
+              <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
+                {formatDuration(totalSeconds, locale)}
               </div>
             </div>
+            <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg px-4 py-3 shadow-sm dark:shadow-none">
+              <div className="text-sm text-slate-500 dark:text-slate-400 mb-1">
+                {groupBy === "app" ? t("summary.apps") : t("summary.categories")}
+              </div>
+              <div className="text-3xl font-bold text-slate-900 dark:text-white tabular-nums">
+                {count}
+              </div>
+            </div>
+          </div>
 
-            <Suspense fallback={<div className="text-center text-slate-500 py-8">{t("loading")}</div>}>
-              <StackedBarChart
-                hourlyData={hourlyBreakdown}
-                dailyData={rangeBreakdown}
-              />
-            </Suspense>
+          <Suspense fallback={<div className="text-center text-slate-500 py-8">{t("loading")}</div>}>
+            <StackedBarChart
+              groupBy={groupBy}
+              hourlyData={hourlyBreakdown}
+              dailyData={rangeBreakdown}
+              hourlyCategoryData={hourlyCategoryBreakdown}
+              dailyCategoryData={rangeCategoryBreakdown}
+            />
+          </Suspense>
 
-            <AppRanking apps={displaySummary.apps} totalSeconds={displaySummary.total_seconds} loading={loading} />
-          </>
-        ) : (
-          <div className="text-center text-slate-500 py-12">{t("loading")}</div>
-        )}
-      </>
+          <AppRanking
+            items={rankingItems}
+            totalSeconds={totalSeconds}
+            loading={loading}
+            title={groupBy === "app" ? t("chart.ranking") : t("chart.categoryRanking")}
+          />
+        </>
+      ) : (
+        <div className="text-center text-slate-500 py-12">{t("loading")}</div>
+      )}
     </div>
   );
 }

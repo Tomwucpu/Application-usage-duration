@@ -3,7 +3,11 @@ mod icon;
 mod tracker;
 mod tray;
 
-use db::{AppMetadataItem, DailyAppBreakdown, DailySummary, Database, HourlyAppBreakdown, ImportBatchResult, ImportRecord, UsageRecord};
+use db::{
+    AppMetadataItem, CategoryItem, CategorySummaryItem, DailyAppBreakdown, DailyCategoryBreakdown,
+    DailySummary, Database, HourlyAppBreakdown, HourlyCategoryBreakdown, ImportBatchResult,
+    ImportRecord, UsageRecord,
+};
 use icon::IconCache;
 use std::sync::Arc;
 use tauri::{App, Manager, Theme, WindowEvent};
@@ -66,11 +70,27 @@ fn get_daily_summary(
 }
 
 #[tauri::command]
+fn get_category_summary(
+    date: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<Vec<CategorySummaryItem>, String> {
+    db.get_category_summary(&date)
+}
+
+#[tauri::command]
 fn get_hourly_app_breakdown(
     date: String,
     db: tauri::State<Arc<Database>>,
 ) -> Result<Vec<HourlyAppBreakdown>, String> {
     db.get_hourly_app_breakdown(&date)
+}
+
+#[tauri::command]
+fn get_hourly_category_breakdown(
+    date: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<Vec<HourlyCategoryBreakdown>, String> {
+    db.get_hourly_category_breakdown(&date)
 }
 
 #[tauri::command]
@@ -80,6 +100,68 @@ fn get_daily_app_breakdown(
     db: tauri::State<Arc<Database>>,
 ) -> Result<Vec<DailyAppBreakdown>, String> {
     db.get_daily_app_breakdown(&start_date, &end_date)
+}
+
+#[tauri::command]
+fn get_daily_category_breakdown(
+    start_date: String,
+    end_date: String,
+    db: tauri::State<Arc<Database>>,
+) -> Result<Vec<DailyCategoryBreakdown>, String> {
+    db.get_daily_category_breakdown(&start_date, &end_date)
+}
+
+#[tauri::command]
+fn get_all_categories(db: tauri::State<Arc<Database>>) -> Result<Vec<CategoryItem>, String> {
+    db.get_all_categories()
+}
+
+#[tauri::command]
+fn create_category(
+    name: String,
+    icon_source: String,
+    builtin_icon_key: Option<String>,
+    custom_icon_path: Option<String>,
+    db: tauri::State<Arc<Database>>,
+) -> Result<(), String> {
+    db.create_category(
+        &name,
+        &icon_source,
+        builtin_icon_key.as_deref(),
+        custom_icon_path.as_deref(),
+    )
+}
+
+#[tauri::command]
+fn update_category(
+    id: i64,
+    name: String,
+    icon_source: String,
+    builtin_icon_key: Option<String>,
+    custom_icon_path: Option<String>,
+    db: tauri::State<Arc<Database>>,
+) -> Result<(), String> {
+    db.update_category(
+        id,
+        &name,
+        &icon_source,
+        builtin_icon_key.as_deref(),
+        custom_icon_path.as_deref(),
+    )
+}
+
+#[tauri::command]
+fn delete_category(id: i64, db: tauri::State<Arc<Database>>) -> Result<(), String> {
+    db.delete_category(id)
+}
+
+#[tauri::command]
+fn set_app_category(
+    app_name: String,
+    category_id: i64,
+    db: tauri::State<Arc<Database>>,
+) -> Result<(), String> {
+    db.set_app_category(&app_name, category_id)
 }
 
 #[tauri::command]
@@ -168,7 +250,6 @@ async fn get_all_app_icons(
         let mut result = HashMap::new();
 
         for (name, exe_path) in &app_meta {
-            // Priority: custom_icon_path > default_icon_path > exe extraction
             if let Some(custom_path) = app_custom_icons.get(name) {
                 let icon = cache.get_or_extract(custom_path);
                 if !icon.is_empty() {
@@ -191,6 +272,32 @@ async fn get_all_app_icons(
             }
         }
 
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(map)
+}
+
+#[tauri::command]
+async fn get_category_file_icons(
+    db: tauri::State<'_, Arc<Database>>,
+    icon_cache: tauri::State<'_, Arc<IconCache>>,
+) -> Result<std::collections::HashMap<i64, String>, String> {
+    use std::collections::HashMap;
+
+    let category_icon_paths = db.get_category_icon_map()?;
+    let cache = icon_cache.inner().clone();
+
+    let map = tokio::task::spawn_blocking(move || -> HashMap<i64, String> {
+        let mut result = HashMap::new();
+        for (id, path) in &category_icon_paths {
+            let icon = cache.get_or_extract(path);
+            if !icon.is_empty() {
+                result.insert(*id, icon);
+            }
+        }
         result
     })
     .await
@@ -276,7 +383,6 @@ pub fn run() {
 
             let database = Arc::new(Database::new(app_dir).expect("failed to initialize database"));
 
-            // Clean up old records if setting exists
             if let Ok(Some(days_str)) = database.get_setting("retention_days") {
                 if let Ok(days) = days_str.parse::<u32>() {
                     let _ = database.cleanup_old_records(days);
@@ -292,7 +398,6 @@ pub fn run() {
 
             tray::create_tray(app.handle())?;
 
-            // Apply saved locale to tray menu
             if let Ok(Some(locale)) = database.get_setting("locale") {
                 if locale == "zh-CN" || locale == "en-US" {
                     let _ = tray::update_tray_menu(app.handle().clone(), locale);
@@ -309,14 +414,23 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_daily_summary,
+            get_category_summary,
             get_hourly_app_breakdown,
+            get_hourly_category_breakdown,
             get_daily_app_breakdown,
+            get_daily_category_breakdown,
+            get_all_categories,
+            create_category,
+            update_category,
+            delete_category,
+            set_app_category,
             start_tracking,
             flush_tracking,
             get_setting,
             set_setting,
             get_all_app_names,
             get_all_app_icons,
+            get_category_file_icons,
             get_all_records,
             get_records_range,
             get_record_count,

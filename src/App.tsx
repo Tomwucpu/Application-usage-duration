@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { I18nProvider, useT } from "./i18n";
 import { useStore, api } from "./stores/useStore";
 import { invoke } from "@tauri-apps/api/core";
@@ -19,7 +19,12 @@ const AppManagement = lazy(async () => {
   return { default: mod.AppManagement };
 });
 
-type View = "dashboard" | "settings" | "appManagement";
+const CategoryManagement = lazy(async () => {
+  const mod = await import("./components/categoryManagement/CategoryManagement");
+  return { default: mod.CategoryManagement };
+});
+
+type View = "dashboard" | "settings" | "appManagement" | "categoryManagement";
 
 function NavButton({
   active,
@@ -55,6 +60,12 @@ function AppInner() {
   const { t, locale } = useT();
   const [currentView, setCurrentView] = useState<View>("dashboard");
   const [spinning, setSpinning] = useState(false);
+  const [mountedViews, setMountedViews] = useState<Record<View, boolean>>({
+    dashboard: true,
+    settings: false,
+    appManagement: false,
+    categoryManagement: false,
+  });
 
   useEffect(() => {
     const p = init();
@@ -77,6 +88,17 @@ function AppInner() {
       setDisplayNames(displayNames);
     }
   }, [displayNames]);
+
+  useEffect(() => {
+    setMountedViews((prev) => ({ ...prev, [currentView]: true }));
+  }, [currentView]);
+
+  const viewContent = useMemo(() => ({
+    dashboard: <Dashboard />,
+    settings: <SettingsPage />,
+    appManagement: <AppManagement />,
+    categoryManagement: <CategoryManagement />,
+  }), []);
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-[#1d1d20] text-slate-900 dark:text-slate-100 transition-colors">
@@ -128,12 +150,22 @@ function AppInner() {
             onClick={() => setCurrentView("appManagement")}
             title={t("appManagement.title")}
           >
-            
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="3" width="7" height="7" rx="1" />
               <rect x="14" y="3" width="7" height="7" rx="1" />
               <rect x="3" y="14" width="7" height="7" rx="1" />
               <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+          </NavButton>
+          <NavButton
+            active={currentView === "categoryManagement"}
+            onClick={() => setCurrentView("categoryManagement")}
+            title={t("categoryManagement.title")}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 7l9-4 9 4-9 4-9-4z" />
+              <path d="M3 17l9 4 9-4" />
+              <path d="M3 12l9 4 9-4" />
             </svg>
           </NavButton>
           <NavButton
@@ -148,12 +180,16 @@ function AppInner() {
           </NavButton>
         </div>
       </header>
-      <main className="flex-1 overflow-y-auto custom-scrollbar p-6" key={currentView}>
-        <div className="animate-fadeIn">
-          <Suspense fallback={<div className="text-center text-slate-500 py-12">{t("loading")}</div>}>
-            {currentView === "dashboard" ? <Dashboard /> : currentView === "settings" ? <SettingsPage /> : <AppManagement />}
-          </Suspense>
-        </div>
+      <main className="flex-1 overflow-y-auto custom-scrollbar p-6">
+        <Suspense fallback={<div className="text-center text-slate-500 py-12">{t("loading")}</div>}>
+          {(Object.keys(mountedViews) as View[]).map((view) => (
+            mountedViews[view] ? (
+              <div key={view} className={currentView === view ? "animate-fadeIn" : "hidden"}>
+                {viewContent[view]}
+              </div>
+            ) : null
+          ))}
+        </Suspense>
       </main>
     </div>
   );

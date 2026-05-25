@@ -9,7 +9,13 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import type { HourlyAppBreakdown, DailyAppBreakdown } from "../types";
+import type {
+  DailyAppBreakdown,
+  DailyCategoryBreakdown,
+  GroupBy,
+  HourlyAppBreakdown,
+  HourlyCategoryBreakdown,
+} from "../types";
 import { useT } from "../i18n";
 import { useStore } from "../stores/useStore";
 import { CHART_COLORS, CHART_OTHER_COLOR } from "../themes/colors";
@@ -19,8 +25,11 @@ import { DateNavigator } from "./dashboard/DateNavigator";
 const TOP_N = 10;
 
 interface Props {
+  groupBy: GroupBy;
   hourlyData: HourlyAppBreakdown[];
   dailyData: DailyAppBreakdown[];
+  hourlyCategoryData: HourlyCategoryBreakdown[];
+  dailyCategoryData: DailyCategoryBreakdown[];
 }
 
 function formatDuration(seconds: number): string {
@@ -37,103 +46,50 @@ interface ChartData {
   colorMap: Record<string, string>;
 }
 
-function buildDailyChartData(
-  hourlyData: HourlyAppBreakdown[],
+function buildChartData(
+  rows: Array<{ bucket: string | number; label: string; total_seconds: number }>,
+  bucketOrder: Array<{ value: string | number; label: string }>,
+  bucketKey: "hour" | "dateLabel",
   othersLabel: string,
 ): ChartData {
-  const hourApps: Map<number, Map<string, number>> = new Map();
-  const appTotals: Map<string, number> = new Map();
+  const buckets = new Map<string | number, Map<string, number>>();
+  const totals = new Map<string, number>();
 
-  for (const item of hourlyData) {
-    const name = getDisplayName(item.app_name);
-    if (!hourApps.has(item.hour)) hourApps.set(item.hour, new Map());
-    const current = hourApps.get(item.hour)!.get(name) || 0;
-    hourApps.get(item.hour)!.set(name, current + item.total_seconds);
-    appTotals.set(
-      name,
-      (appTotals.get(name) || 0) + item.total_seconds,
-    );
+  for (const item of rows) {
+    if (!buckets.has(item.bucket)) buckets.set(item.bucket, new Map());
+    const current = buckets.get(item.bucket)!.get(item.label) || 0;
+    buckets.get(item.bucket)!.set(item.label, current + item.total_seconds);
+    totals.set(item.label, (totals.get(item.label) || 0) + item.total_seconds);
   }
 
-  const sortedApps = [...appTotals.entries()]
-    .sort((a, b) => b[1] - a[1]);
-  const topApps = sortedApps.slice(0, TOP_N).map(([name]) => name);
-  const topAppSet = new Set(topApps);
-  const hasOthers = sortedApps.length > TOP_N;
+  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]);
+  const topItems = sorted.slice(0, TOP_N).map(([name]) => name);
+  const topItemSet = new Set(topItems);
+  const hasOthers = sorted.length > TOP_N;
 
   const colorMap: Record<string, string> = {};
-  topApps.forEach((name, i) => {
+  topItems.forEach((name, i) => {
     colorMap[name] = CHART_COLORS[i % CHART_COLORS.length];
   });
   if (hasOthers) colorMap[othersLabel] = CHART_OTHER_COLOR;
 
-  const chartData = [];
-  for (let h = 0; h < 24; h++) {
-    const entry: Record<string, string | number> = {
-      hour: `${String(h).padStart(2, "0")}:00`,
-    };
-    const hourMap = hourApps.get(h) || new Map();
-    for (const app of topApps) {
-      entry[app] = hourMap.get(app) || 0;
+  const chartData = bucketOrder.map(({ value, label }) => {
+    const entry: Record<string, string | number> = { [bucketKey]: label };
+    const bucketMap = buckets.get(value) || new Map();
+    for (const item of topItems) {
+      entry[item] = bucketMap.get(item) || 0;
     }
     if (hasOthers) {
       let othersSum = 0;
-      for (const [app, secs] of hourMap) {
-        if (!topAppSet.has(app)) othersSum += secs;
-      }
-      entry[othersLabel] = othersSum;
-    }
-    chartData.push(entry);
-  }
-
-  return { chartData, appNames: hasOthers ? [...topApps, othersLabel] : topApps, colorMap };
-}
-
-function buildRangeChartData(
-  dailyData: DailyAppBreakdown[],
-  othersLabel: string,
-  dates: { date: string; label: string }[],
-): ChartData {
-  const dayApps: Map<string, Map<string, number>> = new Map();
-  const appTotals: Map<string, number> = new Map();
-
-  for (const item of dailyData) {
-    if (!dayApps.has(item.date)) dayApps.set(item.date, new Map());
-    const name = getDisplayName(item.app_name);
-    const current = dayApps.get(item.date)!.get(name) || 0;
-    dayApps.get(item.date)!.set(name, current + item.total_seconds);
-    appTotals.set(name, (appTotals.get(name) || 0) + item.total_seconds);
-  }
-
-  const sortedApps = [...appTotals.entries()]
-    .sort((a, b) => b[1] - a[1]);
-  const topApps = sortedApps.slice(0, TOP_N).map(([name]) => name);
-  const topAppSet = new Set(topApps);
-  const hasOthers = sortedApps.length > TOP_N;
-
-  const colorMap: Record<string, string> = {};
-  topApps.forEach((name, i) => {
-    colorMap[name] = CHART_COLORS[i % CHART_COLORS.length];
-  });
-  if (hasOthers) colorMap[othersLabel] = CHART_OTHER_COLOR;
-
-  const chartData = dates.map(({ date, label }) => {
-    const entry: Record<string, string | number> = { dateLabel: label };
-    const dayMap = dayApps.get(date) || new Map();
-    for (const app of topApps) {
-      entry[app] = dayMap.get(app) || 0;
-    }
-    if (hasOthers) {
-      let othersSum = 0;
-      for (const [app, secs] of dayMap) {
-        if (!topAppSet.has(app)) othersSum += secs;
+      for (const [item, secs] of bucketMap) {
+        if (!topItemSet.has(item)) othersSum += secs;
       }
       entry[othersLabel] = othersSum;
     }
     return entry;
   });
 
-  return { chartData, appNames: hasOthers ? [...topApps, othersLabel] : topApps, colorMap };
+  return { chartData, appNames: hasOthers ? [...topItems, othersLabel] : topItems, colorMap };
 }
 
 function CustomTooltip({
@@ -244,7 +200,7 @@ function BreakdownHeader({
   );
 }
 
-export function StackedBarChart({ hourlyData, dailyData }: Props) {
+export function StackedBarChart({ groupBy, hourlyData, dailyData, hourlyCategoryData, dailyCategoryData }: Props) {
   const { t, locale } = useT();
   const selectedDate = useStore((s) => s.selectedDate);
   const viewMode = useStore((s) => s.viewMode);
@@ -285,20 +241,52 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
       });
     const start = new Date(customStartDate + "T00:00:00");
     const end = new Date(customEndDate + "T00:00:00");
-    const dash = "\u2009\u2013\u2009";
+    const dash = " – ";
     return `${fmt(start)}${dash}${fmt(end)}`;
   }, [viewMode, customStartDate, customEndDate, locale]);
 
   const { chartData, appNames, colorMap } = useMemo(() => {
     if (viewMode === "daily") {
-      return buildDailyChartData(hourlyData, othersLabel);
+      const rows = groupBy === "app"
+        ? hourlyData.map((item) => ({
+          bucket: item.hour,
+          label: getDisplayName(item.app_name),
+          total_seconds: item.total_seconds,
+        }))
+        : hourlyCategoryData.map((item) => ({
+          bucket: item.hour,
+          label: item.category_name,
+          total_seconds: item.total_seconds,
+        }));
+
+      const bucketOrder = Array.from({ length: 24 }, (_, h) => ({
+        value: h,
+        label: `${String(h).padStart(2, "0")}:00`,
+      }));
+
+      return buildChartData(rows, bucketOrder, "hour", othersLabel);
     }
+
     const dates = viewMode === "custom" ? customDates : dateList;
     if (dates.length === 0) {
       return { chartData: [], appNames: [], colorMap: {} };
     }
-    return buildRangeChartData(dailyData, othersLabel, dates);
-  }, [viewMode, hourlyData, dailyData, othersLabel, locale, dateList, customDates]);
+
+    const rows = groupBy === "app"
+      ? dailyData.map((item) => ({
+        bucket: item.date,
+        label: getDisplayName(item.app_name),
+        total_seconds: item.total_seconds,
+      }))
+      : dailyCategoryData.map((item) => ({
+        bucket: item.date,
+        label: item.category_name,
+        total_seconds: item.total_seconds,
+      }));
+
+    const bucketOrder = dates.map(({ date, label }) => ({ value: date, label }));
+    return buildChartData(rows, bucketOrder, "dateLabel", othersLabel);
+  }, [viewMode, groupBy, hourlyData, dailyData, hourlyCategoryData, dailyCategoryData, othersLabel, dateList, customDates]);
 
   const dayCount = viewMode === "daily" ? 24 : (viewMode === "custom" ? customDates.length : dateList.length);
   const xInterval = (() => {
@@ -316,7 +304,7 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
     return (
       <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
         <BreakdownHeader
-          title={t("breakdown.title")}
+          title={groupBy === "app" ? t("breakdown.title") : t("breakdown.categoryTitle")}
           rangeTitle={rangeTitle}
           selectedDate={selectedDate}
           viewMode={viewMode}
@@ -335,10 +323,9 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
   }
 
   return (
-    // 应用使用分布组件
     <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
       <BreakdownHeader
-        title={t("breakdown.title")}
+        title={groupBy === "app" ? t("breakdown.title") : t("breakdown.categoryTitle")}
         rangeTitle={rangeTitle}
         selectedDate={selectedDate}
         viewMode={viewMode}
@@ -349,11 +336,10 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
         onCustomRangeChange={setCustomRange}
       />
 
-      {/* Chart */}
       <div className="w-full h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            key={`${viewMode}-${selectedDate}-${customStartDate}-${customEndDate}`}
+            key={`${groupBy}-${viewMode}-${selectedDate}-${customStartDate}-${customEndDate}`}
             data={chartData}
             margin={{ top: 10, right: 4, bottom: 4, left: 0 }}
           >
@@ -396,7 +382,6 @@ export function StackedBarChart({ hourlyData, dailyData }: Props) {
         </ResponsiveContainer>
       </div>
 
-      {/* 图例和注释 */}
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-1 pt-2">
         {appNames.map((name) => (
           <div key={name} className="flex items-center gap-1.5">

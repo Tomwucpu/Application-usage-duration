@@ -2,7 +2,22 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
-import type { DailySummary, TrackerState, HourlyAppBreakdown, DailyAppBreakdown, UsageRecord, ViewMode, ImportBatchResult, ImportRecord, AppMetadataItem } from "../types";
+import type {
+  AppMetadataItem,
+  CategoryItem,
+  CategorySummaryItem,
+  DailyAppBreakdown,
+  DailyCategoryBreakdown,
+  DailySummary,
+  GroupBy,
+  HourlyAppBreakdown,
+  HourlyCategoryBreakdown,
+  ImportBatchResult,
+  ImportRecord,
+  TrackerState,
+  UsageRecord,
+  ViewMode,
+} from "../types";
 import { addDays, getBreakdownRange, getTodayString } from "../utils/dates";
 
 const shouldLogBaseline = typeof location !== "undefined" && location.hostname === "localhost";
@@ -53,6 +68,10 @@ export const api = {
     } catch {
       logBaseline(`[baseline] get_all_app_icons ${t1}ms`);
     }
+    return res;
+  },
+  getCategoryFileIcons: async () => {
+    const res = await invoke<Record<number, string>>("get_category_file_icons");
     return res;
   },
   getAllRecords: async () => {
@@ -116,6 +135,42 @@ export const api = {
     const res = await invoke<Record<string, string>>("get_app_display_names");
     return res;
   },
+  getAllCategories: async () => {
+    const res = await invoke<CategoryItem[]>("get_all_categories");
+    return res;
+  },
+  createCategory: async (payload: {
+    name: string;
+    iconSource: "builtin" | "file";
+    builtinIconKey: string | null;
+    customIconPath: string | null;
+  }) => {
+    await invoke<void>("create_category", payload);
+  },
+  updateCategory: async (payload: {
+    id: number;
+    name: string;
+    iconSource: "builtin" | "file";
+    builtinIconKey: string | null;
+    customIconPath: string | null;
+  }) => {
+    await invoke<void>("update_category", payload);
+  },
+  deleteCategory: async (id: number) => {
+    await invoke<void>("delete_category", { id });
+  },
+  setAppCategory: async (appName: string, categoryId: number) => {
+    await invoke<void>("set_app_category", { appName, categoryId });
+  },
+  getCategorySummary: async (date: string) => {
+    return await invoke<CategorySummaryItem[]>("get_category_summary", { date });
+  },
+  getHourlyCategoryBreakdown: async (date: string) => {
+    return await invoke<HourlyCategoryBreakdown[]>("get_hourly_category_breakdown", { date });
+  },
+  getDailyCategoryBreakdown: async (startDate: string, endDate: string) => {
+    return await invoke<DailyCategoryBreakdown[]>("get_daily_category_breakdown", { startDate, endDate });
+  },
 };
 
 type TabId = "dashboard" | "breakdown";
@@ -124,21 +179,29 @@ type Theme = "light" | "dark";
 interface Store {
   tracker: TrackerState;
   summary: DailySummary | null;
+  categorySummary: CategorySummaryItem[];
   selectedDate: string;
   loading: boolean;
   activeTab: TabId;
   theme: Theme;
+  groupBy: GroupBy;
   hourlyBreakdown: HourlyAppBreakdown[];
   hourlyBreakdownDate: string | null;
   dailyBreakdown: DailyAppBreakdown[];
   dailyBreakdownRange: { start: string; end: string } | null;
   rangeBreakdown: DailyAppBreakdown[];
   rangeBreakdownRange: { start: string; end: string } | null;
+  hourlyCategoryBreakdown: HourlyCategoryBreakdown[];
+  hourlyCategoryBreakdownDate: string | null;
+  rangeCategoryBreakdown: DailyCategoryBreakdown[];
+  rangeCategoryBreakdownRange: { start: string; end: string } | null;
   viewMode: ViewMode;
   customStartDate: string | null;
   customEndDate: string | null;
   appIcons: Record<string, string>;
   displayNames: Record<string, string>;
+  categoryFileIcons: Record<number, string>;
+  categories: CategoryItem[];
   autoStartEnabled: boolean;
   init: () => Promise<() => void>;
   setDate: (date: string) => Promise<void>;
@@ -146,11 +209,16 @@ interface Store {
   setActiveTab: (tab: TabId) => void;
   setTheme: (theme: Theme) => void;
   setViewMode: (mode: ViewMode) => void;
+  setGroupBy: (groupBy: GroupBy) => void;
   setCustomRange: (start: string, end: string) => void;
   loadHourlyBreakdown: (date: string, force?: boolean) => Promise<void>;
   loadDailyBreakdown: (date: string, force?: boolean) => Promise<void>;
   loadRangeBreakdown: (start: string, end: string, force?: boolean) => Promise<void>;
+  loadCategorySummary: (date: string, force?: boolean) => Promise<void>;
+  loadHourlyCategoryBreakdown: (date: string, force?: boolean) => Promise<void>;
+  loadRangeCategoryBreakdown: (start: string, end: string, force?: boolean) => Promise<void>;
   ensureAppIconsLoaded: (force?: boolean) => Promise<void>;
+  loadCategories: (force?: boolean) => Promise<void>;
   checkAutoStart: () => Promise<void>;
   toggleAutoStart: () => Promise<void>;
 }
@@ -165,25 +233,32 @@ export const useStore = create<Store>((set, get) => ({
     today_total_seconds: 0,
   },
   summary: null,
+  categorySummary: [],
   selectedDate: getTodayString(),
   loading: false,
   activeTab: "dashboard",
   theme: (localStorage.getItem("theme") as Theme) || "dark",
+  groupBy: (localStorage.getItem("groupBy") as GroupBy) || "app",
   hourlyBreakdown: [],
   hourlyBreakdownDate: null,
   dailyBreakdown: [],
   dailyBreakdownRange: null,
   rangeBreakdown: [],
   rangeBreakdownRange: null,
+  hourlyCategoryBreakdown: [],
+  hourlyCategoryBreakdownDate: null,
+  rangeCategoryBreakdown: [],
+  rangeCategoryBreakdownRange: null,
   viewMode: "daily",
   customStartDate: null,
   customEndDate: null,
   appIcons: {},
   displayNames: {},
+  categoryFileIcons: {},
+  categories: [],
   autoStartEnabled: false,
 
   init: async () => {
-    // Apply theme on load
     const currentTheme = get().theme;
     if (currentTheme === "dark") {
       document.documentElement.classList.add("dark");
@@ -206,11 +281,12 @@ export const useStore = create<Store>((set, get) => ({
 
     const [summary] = await Promise.all([
       invoke<DailySummary>("get_daily_summary", { date: get().selectedDate }),
+      get().loadCategorySummary(get().selectedDate, true),
       get().ensureAppIconsLoaded(),
+      get().loadCategories(true),
     ]);
     set({ summary });
 
-    // Check auto-start status
     try {
       const enabled = await isEnabled();
       set({ autoStartEnabled: enabled });
@@ -227,7 +303,9 @@ export const useStore = create<Store>((set, get) => ({
     set({ selectedDate: date });
     const [summary] = await Promise.all([
       invoke<DailySummary>("get_daily_summary", { date }),
+      get().loadCategorySummary(date, true),
       get().ensureAppIconsLoaded(true),
+      get().loadCategories(true),
     ]);
     set({ summary });
   },
@@ -241,14 +319,17 @@ export const useStore = create<Store>((set, get) => ({
         invoke<DailySummary>("get_daily_summary", { date: state.selectedDate }).then((summary) => {
           set({ summary });
         }),
+        state.loadCategorySummary(state.selectedDate, true),
         invoke<number>("get_today_total_seconds").then((seconds) => {
           set((s) => ({ tracker: { ...s.tracker, today_total_seconds: seconds } }));
         }),
         state.ensureAppIconsLoaded(true),
+        state.loadCategories(true),
       ];
 
       if (state.viewMode === "daily") {
         tasks.push(state.loadHourlyBreakdown(state.selectedDate, true));
+        tasks.push(state.loadHourlyCategoryBreakdown(state.selectedDate, true));
       }
 
       const range = getBreakdownRange(
@@ -259,6 +340,7 @@ export const useStore = create<Store>((set, get) => ({
       );
       if (range) {
         tasks.push(state.loadRangeBreakdown(range.start, range.end, true));
+        tasks.push(state.loadRangeCategoryBreakdown(range.start, range.end, true));
       }
 
       await Promise.all(tasks);
@@ -282,6 +364,11 @@ export const useStore = create<Store>((set, get) => ({
     invoke("update_window_theme", { theme });
   },
 
+  setGroupBy: (groupBy: GroupBy) => {
+    localStorage.setItem("groupBy", groupBy);
+    set({ groupBy });
+  },
+
   loadHourlyBreakdown: async (date: string, force = false) => {
     const state = get();
     if (!force && state.hourlyBreakdownDate === date && state.hourlyBreakdown.length > 0) {
@@ -292,10 +379,27 @@ export const useStore = create<Store>((set, get) => ({
     set({ hourlyBreakdown: data, hourlyBreakdownDate: date });
   },
 
+  loadCategorySummary: async (date: string, force = false) => {
+    const state = get();
+    if (!force && state.selectedDate === date && state.categorySummary.length > 0) {
+      return;
+    }
+    const data = await api.getCategorySummary(date);
+    set({ categorySummary: data });
+  },
+
+  loadHourlyCategoryBreakdown: async (date: string, force = false) => {
+    const state = get();
+    if (!force && state.hourlyCategoryBreakdownDate === date && state.hourlyCategoryBreakdown.length > 0) {
+      return;
+    }
+    const data = await api.getHourlyCategoryBreakdown(date);
+    set({ hourlyCategoryBreakdown: data, hourlyCategoryBreakdownDate: date });
+  },
+
   setViewMode: (mode: ViewMode) => {
     const state = get();
     set({ viewMode: mode });
-    // Default custom range to last 7 days if switching to custom with no range set
     if (mode === "custom" && (!state.customStartDate || !state.customEndDate)) {
       const today = getTodayString();
       const weekAgo = addDays(today, -6);
@@ -304,7 +408,6 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   setCustomRange: (start: string, end: string) => {
-    // Ensure start <= end
     if (start > end) {
       set({ customStartDate: end, customEndDate: start });
     } else {
@@ -333,6 +436,25 @@ export const useStore = create<Store>((set, get) => ({
     });
   },
 
+  loadRangeCategoryBreakdown: async (start: string, end: string, force = false) => {
+    const state = get();
+    if (
+      !force
+      && state.rangeCategoryBreakdownRange
+      && state.rangeCategoryBreakdownRange.start === start
+      && state.rangeCategoryBreakdownRange.end === end
+      && state.rangeCategoryBreakdown.length > 0
+    ) {
+      return;
+    }
+
+    const data = await api.getDailyCategoryBreakdown(start, end);
+    set({
+      rangeCategoryBreakdown: data,
+      rangeCategoryBreakdownRange: { start, end },
+    });
+  },
+
   loadDailyBreakdown: async (date: string, force = false) => {
     const range = getBreakdownRange("daily", date, null, null);
     if (!range) return;
@@ -341,13 +463,14 @@ export const useStore = create<Store>((set, get) => ({
 
   ensureAppIconsLoaded: async (force = false) => {
     const state = get();
-    if (!force && Object.keys(state.appIcons).length > 0) {
+    if (!force && Object.keys(state.appIcons).length > 0 && Object.keys(state.categoryFileIcons).length > 0) {
       return;
     }
 
-    const [icons, names] = await Promise.all([
+    const [icons, names, categoryFileIcons] = await Promise.all([
       api.getAllAppIcons(),
       api.getAppDisplayNames(),
+      api.getCategoryFileIcons(),
     ]);
 
     if (icons && Object.keys(icons).length > 0) {
@@ -356,6 +479,18 @@ export const useStore = create<Store>((set, get) => ({
     if (names && Object.keys(names).length > 0) {
       set({ displayNames: { ...state.displayNames, ...names } });
     }
+    if (categoryFileIcons) {
+      set({ categoryFileIcons });
+    }
+  },
+
+  loadCategories: async (force = false) => {
+    const state = get();
+    if (!force && state.categories.length > 0) {
+      return;
+    }
+    const categories = await api.getAllCategories();
+    set({ categories });
   },
 
   checkAutoStart: async () => {
