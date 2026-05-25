@@ -8,6 +8,7 @@ import { AppRanking } from "./dashboard/AppRanking";
 import { getDisplayName } from "./AppNames";
 import { BUILTIN_CATEGORY_ICONS } from "./CategoryIcons";
 import { getBreakdownRange } from "../utils/dates";
+import { buildSeriesColorMap } from "../utils/chartColors";
 
 const StackedBarChart = lazy(async () => {
   const mod = await import("./StackedBarChart");
@@ -216,6 +217,10 @@ export function Dashboard() {
     });
   }, [groupBy, appDisplaySummary, appIcons, categoryDisplaySummary, categoryFileIcons]);
 
+  const rankingColorMap = useMemo(() => {
+    return buildSeriesColorMap(rankingItems.map((item) => item.label), null);
+  }, [rankingItems]);
+
   const totalSeconds = groupBy === "app"
     ? (appDisplaySummary?.total_seconds || 0)
     : categoryDisplaySummary.total_seconds;
@@ -315,6 +320,7 @@ export function Dashboard() {
             totalSeconds={totalSeconds}
             loading={loading}
             title={groupBy === "app" ? t("chart.ranking") : t("chart.categoryRanking")}
+            colorMap={rankingColorMap}
           />
         </>
       ) : (

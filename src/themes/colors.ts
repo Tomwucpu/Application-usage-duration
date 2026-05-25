@@ -6,9 +6,9 @@
 
 /* ── Chart palette (static, same in both themes) ── */
 export const CHART_COLORS = [
-  "#6366f1", "#8b5cf6", "#a855f7", "#d946ef",
-  "#ec4899", "#f43f5e", "#f97316", "#eab308",
-  "#22c55e", "#14b8a6", "#06b6d4", "#3b82f6",
+  "#1538fc", "#ff5400", "#ffbd00", "#8ac926",
+  "#00c853", "#00bfa5", "#00b8d4", "#0091ea",
+  "#ff0054", "#7c4dff", "#d500f9", "#ff4081",
 ] as const;
 
 export const CHART_OTHER_COLOR = "#475569";

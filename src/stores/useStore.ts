@@ -19,6 +19,7 @@ import type {
   ViewMode,
 } from "../types";
 import { addDays, getBreakdownRange, getTodayString } from "../utils/dates";
+import { syncDisplayNamesSnapshot } from "../utils/displayNames";
 
 const shouldLogBaseline = typeof location !== "undefined" && location.hostname === "localhost";
 
@@ -476,8 +477,8 @@ export const useStore = create<Store>((set, get) => ({
     if (icons && Object.keys(icons).length > 0) {
       set({ appIcons: { ...state.appIcons, ...icons } });
     }
-    if (names && Object.keys(names).length > 0) {
-      set({ displayNames: { ...state.displayNames, ...names } });
+    if (names) {
+      set({ displayNames: syncDisplayNamesSnapshot(state.displayNames, names) });
     }
     if (categoryFileIcons) {
       set({ categoryFileIcons });

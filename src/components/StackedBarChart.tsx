@@ -18,8 +18,9 @@ import type {
 } from "../types";
 import { useT } from "../i18n";
 import { useStore } from "../stores/useStore";
-import { CHART_COLORS, CHART_OTHER_COLOR } from "../themes/colors";
+import { CHART_OTHER_COLOR } from "../themes/colors";
 import { getBreakdownRange, getDateList } from "../utils/dates";
+import { buildSeriesColorMap, getSeriesOrder } from "../utils/chartColors";
 import { DateNavigator } from "./dashboard/DateNavigator";
 
 const TOP_N = 10;
@@ -62,16 +63,11 @@ function buildChartData(
     totals.set(item.label, (totals.get(item.label) || 0) + item.total_seconds);
   }
 
-  const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1]);
-  const topItems = sorted.slice(0, TOP_N).map(([name]) => name);
+  const orderedItems = getSeriesOrder(totals);
+  const topItems = orderedItems.slice(0, TOP_N);
   const topItemSet = new Set(topItems);
-  const hasOthers = sorted.length > TOP_N;
-
-  const colorMap: Record<string, string> = {};
-  topItems.forEach((name, i) => {
-    colorMap[name] = CHART_COLORS[i % CHART_COLORS.length];
-  });
-  if (hasOthers) colorMap[othersLabel] = CHART_OTHER_COLOR;
+  const hasOthers = orderedItems.length > TOP_N;
+  const colorMap = buildSeriesColorMap(topItems, hasOthers ? othersLabel : null);
 
   const chartData = bucketOrder.map(({ value, label }) => {
     const entry: Record<string, string | number> = { [bucketKey]: label };

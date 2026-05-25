@@ -1,6 +1,5 @@
 import { useT } from "../../i18n";
 import type { Locale } from "../../i18n";
-import { CHART_COLORS } from "../../themes/colors";
 import type { UsageRankingItem } from "../../types";
 
 interface Props {
@@ -8,6 +7,7 @@ interface Props {
   totalSeconds: number;
   loading: boolean;
   title: string;
+  colorMap: Record<string, string>;
 }
 
 function formatDuration(seconds: number, locale: Locale): string {
@@ -46,7 +46,7 @@ function RankingIcon({ icon, name }: { icon?: string | null; name: string }) {
   );
 }
 
-export function AppRanking({ items, totalSeconds, loading, title }: Props) {
+export function AppRanking({ items, totalSeconds, loading, title, colorMap }: Props) {
   const { t, locale } = useT();
   const topItems = items.slice(0, 15);
 
@@ -88,7 +88,7 @@ export function AppRanking({ items, totalSeconds, loading, title }: Props) {
                     className="h-full rounded-full transition-all"
                     style={{
                       width: `${Math.max(pct, 2)}%`,
-                      backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                      backgroundColor: colorMap[item.label],
                     }}
                   />
                 </div>

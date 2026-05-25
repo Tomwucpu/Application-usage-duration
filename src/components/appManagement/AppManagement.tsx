@@ -3,7 +3,7 @@ import { useStore, api } from "../../stores/useStore";
 import { useT } from "../../i18n";
 import { ToastStack, type ToastMessage, type ToastTone } from "../shared/ToastStack";
 import { AppTable } from "./AppTable";
-import type { AppMetadataItem, CategoryItem } from "../../types";
+import type { AppMetadataItem } from "../../types";
 
 export function AppManagement() {
   const { t } = useT();
