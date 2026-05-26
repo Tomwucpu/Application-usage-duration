@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { useT } from "../../i18n";
 import type { ViewMode } from "../../types";
 import { addDays, addMonths, getMonthRange, getTodayString, getWeekRange, parseDate } from "../../utils/dates";
-import { DatePicker } from "./DatePicker";
 import { DateRangePicker } from "../breakdown/DateRangePicker";
+import { DatePicker } from "./DatePicker";
 
 interface DateNavigatorProps {
   selectedDate: string;
@@ -15,14 +15,14 @@ interface DateNavigatorProps {
   onCustomRangeChange: (start: string, end: string) => void;
 }
 
-function formatWeekLabel(start: string, end: string, locale: "zh-CN" | "en-US") {
+export function formatWeekLabel(start: string, end: string, locale: "zh-CN" | "en-US") {
   const startDate = parseDate(start);
   const endDate = parseDate(end);
   if (locale === "zh-CN") {
-    return `${startDate.getMonth() + 1}月${startDate.getDate()}日 – ${endDate.getMonth() + 1}月${endDate.getDate()}日`;
+    return `${startDate.getFullYear()}年${startDate.getMonth() + 1}月${startDate.getDate()}日 - ${endDate.getFullYear()}年${endDate.getMonth() + 1}月${endDate.getDate()}日`;
   }
-  const formatter = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
-  return `${formatter.format(startDate)} – ${formatter.format(endDate)}`;
+  const formatter = new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" });
+  return `${formatter.format(startDate)} - ${formatter.format(endDate)}`;
 }
 
 function formatMonthLabel(date: string, locale: "zh-CN" | "en-US") {
@@ -61,8 +61,14 @@ export function DateNavigator({
   const showRangeControls = viewMode === "weekly" || viewMode === "monthly";
   const periodLabel = viewMode === "weekly" ? weeklyLabel : monthlyLabel;
   const jumpLabel = viewMode === "weekly"
-    ? (locale === "zh-CN" ? "本周" : "This Week")
-    : (locale === "zh-CN" ? "本月" : "This Month");
+    ? t("date.navigator.thisWeek")
+    : t("date.navigator.thisMonth");
+  const previousLabel = viewMode === "weekly"
+    ? t("date.navigator.previousWeek")
+    : t("date.navigator.previousMonth");
+  const nextLabel = viewMode === "weekly"
+    ? t("date.navigator.nextWeek")
+    : t("date.navigator.nextMonth");
   const currentSelected = viewMode === "weekly"
     ? weekRange.start === currentWeekRange.start && weekRange.end === currentWeekRange.end
     : monthRange.start === currentMonthRange.start && monthRange.end === currentMonthRange.end;
@@ -80,9 +86,7 @@ export function DateNavigator({
               type="button"
               onClick={() => void onDateChange(viewMode === "weekly" ? addDays(selectedDate, -7) : addMonths(selectedDate, -1))}
               className="date-strip-arrow"
-              aria-label={viewMode === "weekly"
-                ? (locale === "zh-CN" ? "上一周" : "Previous week")
-                : (locale === "zh-CN" ? "上个月" : "Previous month")}
+              aria-label={previousLabel}
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m15 18-6-6 6-6" />
@@ -97,9 +101,7 @@ export function DateNavigator({
               type="button"
               onClick={() => void onDateChange(viewMode === "weekly" ? addDays(selectedDate, 7) : addMonths(selectedDate, 1))}
               className="date-strip-arrow"
-              aria-label={viewMode === "weekly"
-                ? (locale === "zh-CN" ? "下一周" : "Next week")
-                : (locale === "zh-CN" ? "下个月" : "Next month")}
+              aria-label={nextLabel}
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m9 18 6-6-6-6" />

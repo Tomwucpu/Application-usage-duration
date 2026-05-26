@@ -1,15 +1,17 @@
 import { useMemo, useState } from "react";
-import { getDisplayName } from "./AppNames";
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
 } from "recharts";
+import { useT } from "../i18n";
+import { useStore } from "../stores/useStore";
+import { CHART_OTHER_COLOR } from "../themes/colors";
 import type {
   DailyAppBreakdown,
   DailyCategoryBreakdown,
@@ -17,11 +19,9 @@ import type {
   HourlyAppBreakdown,
   HourlyCategoryBreakdown,
 } from "../types";
-import { useT } from "../i18n";
-import { useStore } from "../stores/useStore";
-import { CHART_OTHER_COLOR } from "../themes/colors";
-import { getBreakdownRange, getDateList } from "../utils/dates";
 import { buildSeriesColorMap, getSeriesOrder } from "../utils/chartColors";
+import { getBreakdownRange, getDateList } from "../utils/dates";
+import { getDisplayName } from "./AppNames";
 import { DateNavigator } from "./dashboard/DateNavigator";
 
 const TOP_N = 10;
@@ -188,7 +188,6 @@ function CustomTooltip({
 
 function BreakdownHeader({
   title,
-  rangeTitle,
   selectedDate,
   viewMode,
   customStartDate,
@@ -198,7 +197,6 @@ function BreakdownHeader({
   onCustomRangeChange,
 }: {
   title: string;
-  rangeTitle: string;
   selectedDate: string;
   viewMode: "daily" | "weekly" | "monthly" | "custom";
   customStartDate: string | null;
@@ -213,9 +211,6 @@ function BreakdownHeader({
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
           {title}
         </h2>
-        {rangeTitle && (
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{rangeTitle}</p>
-        )}
       </div>
       <DateNavigator
         selectedDate={selectedDate}
@@ -259,20 +254,6 @@ export function StackedBarChart({ groupBy, hourlyData, dailyData, hourlyCategory
       month: "short",
       day: "numeric",
     });
-  }, [viewMode, customStartDate, customEndDate, locale]);
-
-  const rangeTitle = useMemo(() => {
-    if (viewMode !== "custom" || !customStartDate || !customEndDate) return "";
-    const fmt = (d: Date) =>
-      d.toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    const start = new Date(customStartDate + "T00:00:00");
-    const end = new Date(customEndDate + "T00:00:00");
-    const dash = " – ";
-    return `${fmt(start)}${dash}${fmt(end)}`;
   }, [viewMode, customStartDate, customEndDate, locale]);
 
   const { chartData, appNames, colorMap } = useMemo(() => {
@@ -345,7 +326,6 @@ export function StackedBarChart({ groupBy, hourlyData, dailyData, hourlyCategory
       <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
         <BreakdownHeader
           title={groupBy === "app" ? t("breakdown.title") : t("breakdown.categoryTitle")}
-          rangeTitle={rangeTitle}
           selectedDate={selectedDate}
           viewMode={viewMode}
           customStartDate={customStartDate}
@@ -363,10 +343,9 @@ export function StackedBarChart({ groupBy, hourlyData, dailyData, hourlyCategory
   }
 
   return (
-    <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 flex flex-col space-y-5 shadow-sm dark:shadow-none">
+    <div className="bg-white dark:bg-[#27272b] border border-slate-200 dark:border-[#3f3f41] rounded-lg p-5 flex flex-col shadow-sm dark:shadow-none">
       <BreakdownHeader
         title={groupBy === "app" ? t("breakdown.title") : t("breakdown.categoryTitle")}
-        rangeTitle={rangeTitle}
         selectedDate={selectedDate}
         viewMode={viewMode}
         customStartDate={customStartDate}
@@ -376,12 +355,12 @@ export function StackedBarChart({ groupBy, hourlyData, dailyData, hourlyCategory
         onCustomRangeChange={setCustomRange}
       />
 
-      <div className="w-full h-[400px]">
+      <div className="w-full h-[350px] mt-5">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             key={`${groupBy}-${viewMode}-${selectedDate}-${customStartDate}-${customEndDate}`}
             data={chartData}
-            margin={{ top: 10, right: 4, bottom: 4, left: 0 }}
+            margin={{ top: 5, right: 4, bottom: 4, left: 0 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-chart-grid)" />
             <XAxis

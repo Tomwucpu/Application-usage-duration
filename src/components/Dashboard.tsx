@@ -512,30 +512,6 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span
-            className={`h-3 w-3 rounded-full ${
-              tracker.is_running ? "bg-green-500" : "bg-red-500"
-            }`}
-          />
-          <span className="text-sm text-slate-500 dark:text-slate-400">
-            {tracker.is_running ? t("status.tracking") : t("status.stopped")}
-          </span>
-        </div>
-        {tracker.is_afk && (
-          <span className="text-xs bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded">
-            {t("status.afk")}
-          </span>
-        )}
-        <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 ml-auto">
-          {t("status.today")}:{" "}
-          <span className="text-slate-800 dark:text-slate-200 font-mono">
-            {formatTime(tracker.today_total_seconds)}
-          </span>
-        </div>
-      </div>
-
       <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setGroupBy("app")}
@@ -623,6 +599,13 @@ export function Dashboard() {
             </div>
           )}
         </DropdownMenu>
+
+        <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 ml-auto">
+          {t("status.today")}:{" "}
+          <span className="text-slate-800 dark:text-slate-200 font-mono">
+            {formatTime(tracker.today_total_seconds)}
+          </span>
+        </div>
       </div>
 
       {(groupBy === "app" ? appDisplaySummary : categoryDisplaySummary) ? (

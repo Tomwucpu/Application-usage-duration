@@ -23,9 +23,10 @@ function isSameDay(a: Date, b: Date): boolean {
   return fmtLocalDate(a) === fmtLocalDate(b);
 }
 
-function formatShortDate(dateStr: string, locale: Locale): string {
+export function formatShortDate(dateStr: string, locale: Locale): string {
   const d = parseDate(dateStr);
   return d.toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
+    year: "numeric",
     month: "short",
     day: "numeric",
   });
