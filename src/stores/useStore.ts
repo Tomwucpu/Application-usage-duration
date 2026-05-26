@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { enable, isEnabled, disable } from "@tauri-apps/plugin-autostart";
 import type {
+  AppFilterOption,
   AppMetadataItem,
   CategoryItem,
   CategorySummaryItem,
@@ -20,6 +21,7 @@ import type {
 } from "../types";
 import { addDays, getBreakdownRange, getTodayString } from "../utils/dates";
 import { syncDisplayNamesSnapshot } from "../utils/displayNames";
+import { createBoundedIconCache, mergeBoundedIconCache } from "./iconCache";
 
 const shouldLogBaseline = typeof location !== "undefined" && location.hostname === "localhost";
 
@@ -60,19 +62,19 @@ export const api = {
     }
     return res;
   },
-  getAllAppIcons: async () => {
+  getAppIconsByNames: async (appNames: string[]) => {
     const t0 = performance.now();
-    const res = await invoke<Record<string, string>>("get_all_app_icons");
+    const res = await invoke<Record<string, string>>("get_app_icons_by_names", { appNames });
     const t1 = Math.round(performance.now() - t0);
     try {
-      logBaseline(`[baseline] get_all_app_icons ${t1}ms size=${Object.keys(res || {}).length}`);
+      logBaseline(`[baseline] get_app_icons_by_names ${t1}ms size=${Object.keys(res || {}).length}`);
     } catch {
-      logBaseline(`[baseline] get_all_app_icons ${t1}ms`);
+      logBaseline(`[baseline] get_app_icons_by_names ${t1}ms`);
     }
     return res;
   },
-  getCategoryFileIcons: async () => {
-    const res = await invoke<Record<number, string>>("get_category_file_icons");
+  getCategoryFileIconsByIds: async (categoryIds: number[]) => {
+    const res = await invoke<Record<number, string>>("get_category_file_icons_by_ids", { categoryIds });
     return res;
   },
   getAllRecords: async () => {
@@ -111,6 +113,17 @@ export const api = {
       logBaseline(`[baseline] get_all_app_metadata_list ${t1}ms size=${JSON.stringify(res).length}`);
     } catch {
       logBaseline(`[baseline] get_all_app_metadata_list ${t1}ms`);
+    }
+    return res;
+  },
+  getAppFilterOptions: async () => {
+    const t0 = performance.now();
+    const res = await invoke<AppFilterOption[]>("get_app_filter_options");
+    const t1 = Math.round(performance.now() - t0);
+    try {
+      logBaseline(`[baseline] get_app_filter_options ${t1}ms size=${JSON.stringify(res).length}`);
+    } catch {
+      logBaseline(`[baseline] get_app_filter_options ${t1}ms`);
     }
     return res;
   },
@@ -218,7 +231,8 @@ interface Store {
   loadCategorySummary: (date: string, force?: boolean) => Promise<void>;
   loadHourlyCategoryBreakdown: (date: string, force?: boolean) => Promise<void>;
   loadRangeCategoryBreakdown: (start: string, end: string, force?: boolean) => Promise<void>;
-  ensureAppIconsLoaded: (force?: boolean) => Promise<void>;
+  ensureAppIconsLoaded: (appNames: string[], force?: boolean) => Promise<void>;
+  ensureCategoryFileIconsLoaded: (categoryIds: number[], force?: boolean) => Promise<void>;
   loadCategories: (force?: boolean) => Promise<void>;
   checkAutoStart: () => Promise<void>;
   toggleAutoStart: () => Promise<void>;
@@ -228,9 +242,7 @@ export const useStore = create<Store>((set, get) => ({
   tracker: {
     is_running: false,
     is_afk: false,
-    current_app: "",
     current_title: "",
-    current_icon: "",
     today_total_seconds: 0,
   },
   summary: null,
@@ -283,7 +295,11 @@ export const useStore = create<Store>((set, get) => ({
     const [summary] = await Promise.all([
       invoke<DailySummary>("get_daily_summary", { date: get().selectedDate }),
       get().loadCategorySummary(get().selectedDate, true),
-      get().ensureAppIconsLoaded(),
+      invoke<Record<string, string>>("get_app_display_names").then((names) => {
+        set((state) => ({
+          displayNames: syncDisplayNamesSnapshot(state.displayNames, names),
+        }));
+      }),
       get().loadCategories(true),
     ]);
     set({ summary });
@@ -305,7 +321,11 @@ export const useStore = create<Store>((set, get) => ({
     const [summary] = await Promise.all([
       invoke<DailySummary>("get_daily_summary", { date }),
       get().loadCategorySummary(date, true),
-      get().ensureAppIconsLoaded(true),
+      api.getAppDisplayNames().then((names) => {
+        set((state) => ({
+          displayNames: syncDisplayNamesSnapshot(state.displayNames, names),
+        }));
+      }),
       get().loadCategories(true),
     ]);
     set({ summary });
@@ -324,7 +344,11 @@ export const useStore = create<Store>((set, get) => ({
         invoke<number>("get_today_total_seconds").then((seconds) => {
           set((s) => ({ tracker: { ...s.tracker, today_total_seconds: seconds } }));
         }),
-        state.ensureAppIconsLoaded(true),
+        api.getAppDisplayNames().then((names) => {
+          set((s) => ({
+            displayNames: syncDisplayNamesSnapshot(s.displayNames, names),
+          }));
+        }),
         state.loadCategories(true),
       ];
 
@@ -462,26 +486,66 @@ export const useStore = create<Store>((set, get) => ({
     await get().loadRangeBreakdown(range.start, range.end, force);
   },
 
-  ensureAppIconsLoaded: async (force = false) => {
-    const state = get();
-    if (!force && Object.keys(state.appIcons).length > 0 && Object.keys(state.categoryFileIcons).length > 0) {
+  ensureAppIconsLoaded: async (appNames: string[], force = false) => {
+    if (appNames.length === 0) {
       return;
     }
 
-    const [icons, names, categoryFileIcons] = await Promise.all([
-      api.getAllAppIcons(),
-      api.getAppDisplayNames(),
-      api.getCategoryFileIcons(),
-    ]);
+    const state = get();
+    const uniqueNames = [...new Set(appNames.filter(Boolean))];
+    const missingNames = force
+      ? uniqueNames
+      : uniqueNames.filter((name) => !state.appIcons[name]);
+
+    if (missingNames.length === 0) {
+      return;
+    }
+
+    const icons = await api.getAppIconsByNames(missingNames);
 
     if (icons && Object.keys(icons).length > 0) {
-      set({ appIcons: { ...state.appIcons, ...icons } });
+      const merged = mergeBoundedIconCache(
+        {
+          maxSize: 120,
+          values: state.appIcons,
+          order: Object.keys(state.appIcons),
+        },
+        icons,
+      );
+      set({ appIcons: merged.values });
     }
-    if (names) {
-      set({ displayNames: syncDisplayNamesSnapshot(state.displayNames, names) });
+  },
+
+  ensureCategoryFileIconsLoaded: async (categoryIds: number[], force = false) => {
+    if (categoryIds.length === 0) {
+      return;
     }
-    if (categoryFileIcons) {
-      set({ categoryFileIcons });
+
+    const state = get();
+    const uniqueIds = [...new Set(categoryIds)];
+    const missingIds = force
+      ? uniqueIds
+      : uniqueIds.filter((id) => !state.categoryFileIcons[id]);
+
+    if (missingIds.length === 0) {
+      return;
+    }
+
+    const icons = await api.getCategoryFileIconsByIds(missingIds);
+    if (icons && Object.keys(icons).length > 0) {
+      const current = createBoundedIconCache<string>(60);
+      current.values = Object.fromEntries(
+        Object.entries(state.categoryFileIcons).map(([key, value]) => [key, value]),
+      );
+      current.order = Object.keys(state.categoryFileIcons);
+      const merged = mergeBoundedIconCache(current, Object.fromEntries(
+        Object.entries(icons).map(([key, value]) => [String(key), value]),
+      ));
+      set({
+        categoryFileIcons: Object.fromEntries(
+          Object.entries(merged.values).map(([key, value]) => [Number(key), value]),
+        ),
+      });
     }
   },
 

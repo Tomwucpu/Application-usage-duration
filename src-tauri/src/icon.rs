@@ -1,16 +1,58 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Mutex;
 
 pub struct IconCache {
-    cache: Mutex<HashMap<String, String>>,
+    cache: Mutex<BoundedIconMap>,
 }
 
 const ICON_CACHE_MAX: usize = 200;
 
+struct BoundedIconMap {
+    map: HashMap<String, String>,
+    order: VecDeque<String>,
+    capacity: usize,
+}
+
+impl BoundedIconMap {
+    fn new(capacity: usize) -> Self {
+        Self {
+            map: HashMap::new(),
+            order: VecDeque::new(),
+            capacity,
+        }
+    }
+
+    fn get(&mut self, key: &str) -> Option<String> {
+        let value = self.map.get(key).cloned();
+        if value.is_some() {
+            self.touch(key);
+        }
+        value
+    }
+
+    fn insert(&mut self, key: String, value: String) {
+        self.map.insert(key.clone(), value);
+        self.touch(&key);
+
+        while self.order.len() > self.capacity {
+            if let Some(oldest) = self.order.pop_front() {
+                self.map.remove(&oldest);
+            }
+        }
+    }
+
+    fn touch(&mut self, key: &str) {
+        if let Some(index) = self.order.iter().position(|item| item == key) {
+            self.order.remove(index);
+        }
+        self.order.push_back(key.to_string());
+    }
+}
+
 impl IconCache {
     pub fn new() -> Self {
         IconCache {
-            cache: Mutex::new(HashMap::new()),
+            cache: Mutex::new(BoundedIconMap::new(ICON_CACHE_MAX)),
         }
     }
 
@@ -18,16 +60,13 @@ impl IconCache {
         let mut cache = self.cache.lock().unwrap();
         if let Some(icon) = cache.get(app_path) {
             if !icon.is_empty() {
-                return icon.clone();
+                return icon;
             }
         }
 
         let icon = extract_icon_base64(app_path).unwrap_or_default();
 
         if !icon.is_empty() {
-            if cache.len() >= ICON_CACHE_MAX {
-                cache.clear();
-            }
             cache.insert(app_path.to_string(), icon.clone());
         }
 
@@ -234,4 +273,36 @@ fn extract_icon_base64(exe_path: &str) -> Option<String> {
 #[cfg(not(target_os = "windows"))]
 fn extract_icon_base64(_exe_path: &str) -> Option<String> {
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BoundedIconMap;
+
+    #[test]
+    fn evicts_oldest_key_when_capacity_is_exceeded() {
+        let mut cache = BoundedIconMap::new(2);
+        cache.insert("chrome".to_string(), "icon-1".to_string());
+        cache.insert("cursor".to_string(), "icon-2".to_string());
+        cache.insert("wechat".to_string(), "icon-3".to_string());
+
+        assert!(cache.get("chrome").is_none());
+        assert_eq!(cache.get("cursor"), Some("icon-2".to_string()));
+        assert_eq!(cache.get("wechat"), Some("icon-3".to_string()));
+    }
+
+    #[test]
+    fn touching_key_refreshes_recency() {
+        let mut cache = BoundedIconMap::new(2);
+        cache.insert("chrome".to_string(), "icon-1".to_string());
+        cache.insert("cursor".to_string(), "icon-2".to_string());
+
+        assert_eq!(cache.get("chrome"), Some("icon-1".to_string()));
+
+        cache.insert("wechat".to_string(), "icon-3".to_string());
+
+        assert_eq!(cache.get("chrome"), Some("icon-1".to_string()));
+        assert!(cache.get("cursor").is_none());
+        assert_eq!(cache.get("wechat"), Some("icon-3".to_string()));
+    }
 }

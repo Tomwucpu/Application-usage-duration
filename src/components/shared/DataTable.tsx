@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 export interface Column<T> {
   key: string;
@@ -19,6 +19,7 @@ interface DataTableProps<T> {
   onSort?: (key: string) => void;
   emptyText?: string;
   className?: string;
+  onPageDataChange?: (pageData: T[]) => void;
 }
 
 function SortIcon({ dir }: { dir?: "asc" | "desc" }) {
@@ -58,6 +59,7 @@ export function DataTable<T>({
   onSort,
   emptyText,
   className = "",
+  onPageDataChange,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -66,6 +68,10 @@ export function DataTable<T>({
 
   const startIdx = (safePage - 1) * pageSize;
   const pageData = data.slice(startIdx, startIdx + pageSize);
+
+  useEffect(() => {
+    onPageDataChange?.(pageData);
+  }, [onPageDataChange, pageData]);
 
   return (
     <div className={`space-y-3 ${className}`}>

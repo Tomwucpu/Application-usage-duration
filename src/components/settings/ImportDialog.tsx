@@ -59,7 +59,10 @@ export function ImportDialog({ records, onClose, pushToast, t }: ImportDialogPro
       }
       setResults({ imported, skipped });
       setStep("results");
-      useStore.getState().ensureAppIconsLoaded(true);
+      useStore.getState().ensureAppIconsLoaded(
+        [...new Set(validRecords.map((record) => record.app_name))],
+        true,
+      );
     } catch {
       pushToast("error", t("settings.import.failed"));
       onClose();

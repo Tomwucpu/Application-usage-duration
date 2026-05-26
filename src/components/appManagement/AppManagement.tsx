@@ -100,7 +100,6 @@ export function AppManagement() {
     try {
       const [list] = await Promise.all([
         api.getAppMetadataList(),
-        ensureAppIconsLoaded(true),
         loadCategories(true),
       ]);
       setData(list);
@@ -115,6 +114,10 @@ export function AppManagement() {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleVisibleRowsChange = (rows: AppMetadataItem[]) => {
+    void ensureAppIconsLoaded(rows.map((row) => row.app_name));
+  };
 
   return (
     <div className="">
@@ -215,6 +218,7 @@ export function AppManagement() {
             pushToast={pushToast}
             onRefresh={fetchData}
             appIcons={appIcons}
+            onVisibleRowsChange={handleVisibleRowsChange}
           />
         )}
       </div>

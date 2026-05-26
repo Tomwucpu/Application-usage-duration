@@ -21,9 +21,10 @@ interface Props {
   t: (key: string) => string;
   pushToast: (tone: ToastTone, message: string) => void;
   onRefresh: () => Promise<void>;
+  onVisibleRowsChange?: (rows: CategoryItem[]) => void;
 }
 
-export function CategoryTable({ data, search, t, pushToast, onRefresh }: Props) {
+export function CategoryTable({ data, search, t, pushToast, onRefresh, onVisibleRowsChange }: Props) {
   const categoryFileIcons = useStore((s) => s.categoryFileIcons);
   const [pageSize, setPageSize] = useState(10);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
@@ -149,6 +150,7 @@ export function CategoryTable({ data, search, t, pushToast, onRefresh }: Props) 
         pageSize={pageSize}
         pageSizeOptions={[10, 20, 30]}
         onPageSizeChange={setPageSize}
+        onPageDataChange={onVisibleRowsChange}
         emptyText={search.trim() ? t("categoryManagement.noResults") : t("categoryManagement.noData")}
       />
 

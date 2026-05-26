@@ -14,9 +14,7 @@ use crate::icon::IconCache;
 pub struct TrackerState {
     pub is_running: bool,
     pub is_afk: bool,
-    pub current_app: String,
     pub current_title: String,
-    pub current_icon: String,
     pub today_total_seconds: i64,
     #[serde(skip)]
     pub last_app: Option<String>,
@@ -41,9 +39,7 @@ impl Tracker {
             state: Arc::new(Mutex::new(TrackerState {
                 is_running: true,
                 is_afk: false,
-                current_app: String::new(),
                 current_title: String::new(),
-                current_icon: String::new(),
                 today_total_seconds: 0,
                 last_app: None,
                 last_app_path: None,
@@ -536,7 +532,7 @@ fn process_foreground_change(
     hwnd: isize,
     db: &Database,
     state: &Mutex<TrackerState>,
-    icon_cache: &IconCache,
+    _icon_cache: &IconCache,
     name_cache: &NameCache,
     persisted_metadata: &mut std::collections::HashSet<String>,
     idle_threshold: u32,
@@ -598,9 +594,7 @@ fn process_foreground_change(
         current_state.last_window_title = None;
         current_state.last_start = None;
         current_state.is_afk = true;
-        current_state.current_app = "AFK".to_string();
         current_state.current_title = format!("空闲 {} 秒", idle_secs);
-        current_state.current_icon = String::new();
     }
 
     if !is_idle {
@@ -614,7 +608,6 @@ fn process_foreground_change(
                 .and_then(|p| name_cache.resolve(p))
                 .unwrap_or_else(|| app_name.clone());
 
-            current_state.current_app = display_name.clone();
             current_state.current_title = String::new();
 
             // Persist app→path mapping (once per app)
@@ -622,15 +615,6 @@ fn process_foreground_change(
                 if !persisted_metadata.contains(&display_name) {
                     let _ = db.upsert_app_metadata(&display_name, path);
                     persisted_metadata.insert(display_name.clone());
-                }
-            }
-
-            // Extract icon for new app
-            if current_state.last_app.as_ref() != Some(&display_name) {
-                if let Some(ref path) = app_path {
-                    current_state.current_icon = icon_cache.get_or_extract(path);
-                } else {
-                    current_state.current_icon = String::new();
                 }
             }
 
@@ -710,9 +694,7 @@ fn check_afk_transition(
         current_state.last_window_title = None;
         current_state.last_start = None;
         current_state.is_afk = true;
-        current_state.current_app = "AFK".to_string();
         current_state.current_title = format!("空闲 {} 秒", idle_secs);
-        current_state.current_icon = String::new();
     }
 
     // AFK → active
@@ -763,6 +745,27 @@ fn update_tray_tooltip(app_handle: &AppHandle, state_clone: &TrackerState) {
 mod tests {
     use super::should_ignore_app_from_settings;
     use std::collections::HashMap;
+
+    #[test]
+    fn tracker_state_serialization_omits_current_app_payload() {
+        let state = super::TrackerState {
+            is_running: true,
+            is_afk: false,
+            current_title: "workspace".to_string(),
+            today_total_seconds: 42,
+            last_app: None,
+            last_app_path: None,
+            last_window_title: None,
+            last_start: None,
+        };
+
+        let json = serde_json::to_value(&state).expect("tracker state should serialize");
+
+        assert_eq!(json.get("current_app"), None);
+        assert_eq!(json.get("current_icon"), None);
+        assert_eq!(json.get("current_title"), Some(&serde_json::Value::String("workspace".to_string())));
+        assert_eq!(json.get("today_total_seconds"), Some(&serde_json::Value::Number(42.into())));
+    }
 
     #[test]
     fn ignores_listed_app_when_feature_enabled() {

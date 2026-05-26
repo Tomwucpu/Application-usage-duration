@@ -32,7 +32,7 @@ export function IgnoredApps({ t }: IgnoredAppsProps) {
       try {
         const names = await api.getAllAppNames();
         setAppNames(names || []);
-        await ensureAppIconsLoaded();
+        await ensureAppIconsLoaded(names || []);
         const ignoredVal = await api.getSetting("ignored_apps");
         const ignoredList = parseIgnoredApps(ignoredVal);
         setIgnored(ignoredList);

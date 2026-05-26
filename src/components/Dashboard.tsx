@@ -3,7 +3,7 @@ import { useStore, api } from "../stores/useStore";
 import { useShallow } from "zustand/react/shallow";
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
-import type { AppMetadataItem, UsageRankingItem } from "../types";
+import type { AppFilterOption, UsageRankingItem } from "../types";
 import { AppRanking } from "./dashboard/AppRanking";
 import { getDisplayName } from "./AppNames";
 import { BUILTIN_CATEGORY_ICONS } from "./CategoryIcons";
@@ -109,6 +109,8 @@ export function Dashboard() {
     customStartDate,
     customEndDate,
     categories,
+    ensureAppIconsLoaded,
+    ensureCategoryFileIconsLoaded,
     loadHourlyBreakdown,
     loadRangeBreakdown,
     loadCategorySummary,
@@ -136,6 +138,8 @@ export function Dashboard() {
       customStartDate: s.customStartDate,
       customEndDate: s.customEndDate,
       categories: s.categories,
+      ensureAppIconsLoaded: s.ensureAppIconsLoaded,
+      ensureCategoryFileIconsLoaded: s.ensureCategoryFileIconsLoaded,
       loadHourlyBreakdown: s.loadHourlyBreakdown,
       loadRangeBreakdown: s.loadRangeBreakdown,
       loadCategorySummary: s.loadCategorySummary,
@@ -145,7 +149,7 @@ export function Dashboard() {
     }),
   ));
   const { t, locale } = useT();
-  const [allApps, setAllApps] = useState<AppMetadataItem[]>([]);
+  const [allApps, setAllApps] = useState<AppFilterOption[]>([]);
   const [historicalAppsLoaded, setHistoricalAppsLoaded] = useState(false);
   const [historicalAppsRefreshTick, setHistoricalAppsRefreshTick] = useState(0);
   const [selectedAppNames, setSelectedAppNames] = useState<string[]>(
@@ -223,7 +227,7 @@ export function Dashboard() {
     let cancelled = false;
     let retryTimerId: number | null = null;
 
-    void api.getAppMetadataList()
+    void api.getAppFilterOptions()
       .then((apps) => {
         if (!cancelled) {
           setAllApps(apps);
@@ -266,7 +270,7 @@ export function Dashboard() {
       })
       .map((item) => ({
         value: item.app_name,
-        label: getDisplayName(item.app_name),
+        label: item.display_name || getDisplayName(item.app_name),
         icon: appIcons[item.app_name] || null,
       }))
       .sort((a, b) => a.label.localeCompare(b.label, locale));
@@ -438,6 +442,63 @@ export function Dashboard() {
     categoryFileIcons,
   ]);
 
+  useEffect(() => {
+    const iconNames = new Set<string>();
+
+    for (const item of rankingItems) {
+      if (groupBy === "app") {
+        const matching = allApps.find((app) => app.app_name === item.key);
+        if (matching) {
+          iconNames.add(matching.app_name);
+        }
+      }
+    }
+
+    for (const appName of effectiveSelectedAppNames) {
+      iconNames.add(appName);
+    }
+
+    for (const option of appFilterOptions.slice(0, 40)) {
+      iconNames.add(option.value);
+    }
+
+    if (iconNames.size > 0) {
+      void ensureAppIconsLoaded([...iconNames]);
+    }
+  }, [
+    allApps,
+    appFilterOptions,
+    effectiveSelectedAppNames,
+    ensureAppIconsLoaded,
+    groupBy,
+    rankingItems,
+  ]);
+
+  useEffect(() => {
+    if (groupBy !== "category") {
+      return;
+    }
+
+    const ids = new Set<number>();
+    for (const item of categoryDisplaySummary?.items || []) {
+      if (item.icon_source === "file") {
+        ids.add(item.category_id);
+      }
+    }
+    for (const id of effectiveSelectedCategoryIds) {
+      ids.add(id);
+    }
+
+    if (ids.size > 0) {
+      void ensureCategoryFileIconsLoaded([...ids]);
+    }
+  }, [
+    categoryDisplaySummary,
+    effectiveSelectedCategoryIds,
+    ensureCategoryFileIconsLoaded,
+    groupBy,
+  ]);
+
   const rankingColorMap = useMemo(() => {
     return buildSeriesColorMap(rankingItems.map((item) => item.label), null);
   }, [rankingItems]);
@@ -467,23 +528,6 @@ export function Dashboard() {
             {t("status.afk")}
           </span>
         )}
-        <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-          {t("status.current")}:{" "}
-          {tracker.current_icon && (
-            <img
-              src={`data:image/png;base64,${tracker.current_icon}`}
-              alt=""
-              className="w-4 h-4 rounded-sm"
-            />
-          )}
-          <span className="text-slate-800 dark:text-slate-200">
-            {tracker.current_app || "—"}
-          </span>
-          {tracker.current_title && (
-            <span className="text-slate-400 dark:text-slate-500 ml-1">— {tracker.current_title}</span>
-          )}
-        </div>
-
         <div className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5 ml-auto">
           {t("status.today")}:{" "}
           <span className="text-slate-800 dark:text-slate-200 font-mono">

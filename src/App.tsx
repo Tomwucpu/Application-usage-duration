@@ -60,12 +60,6 @@ function AppInner() {
   const { t, locale } = useT();
   const [currentView, setCurrentView] = useState<View>("dashboard");
   const [spinning, setSpinning] = useState(false);
-  const [mountedViews, setMountedViews] = useState<Record<View, boolean>>({
-    dashboard: true,
-    settings: false,
-    appManagement: false,
-    categoryManagement: false,
-  });
 
   useEffect(() => {
     const p = init();
@@ -88,10 +82,6 @@ function AppInner() {
       setDisplayNames(displayNames);
     }
   }, [displayNames]);
-
-  useEffect(() => {
-    setMountedViews((prev) => ({ ...prev, [currentView]: true }));
-  }, [currentView]);
 
   const viewContent = useMemo(() => ({
     dashboard: <Dashboard />,
@@ -182,13 +172,9 @@ function AppInner() {
       </header>
       <main className="flex-1 overflow-y-auto custom-scrollbar p-6">
         <Suspense fallback={<div className="text-center text-slate-500 py-12">{t("loading")}</div>}>
-          {(Object.keys(mountedViews) as View[]).map((view) => (
-            mountedViews[view] ? (
-              <div key={view} className={currentView === view ? "animate-fadeIn" : "hidden"}>
-                {viewContent[view]}
-              </div>
-            ) : null
-          ))}
+          <div key={currentView} className="animate-fadeIn">
+            {viewContent[currentView]}
+          </div>
         </Suspense>
       </main>
     </div>

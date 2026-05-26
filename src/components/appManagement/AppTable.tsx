@@ -25,6 +25,7 @@ interface AppTableProps {
   pushToast: (tone: ToastTone, message: string) => void;
   onRefresh: () => Promise<void>;
   appIcons: Record<string, string>;
+  onVisibleRowsChange?: (rows: AppMetadataItem[]) => void;
 }
 
 interface ConfirmState {
@@ -41,6 +42,7 @@ export function AppTable({
   pushToast,
   onRefresh,
   appIcons,
+  onVisibleRowsChange,
 }: AppTableProps) {
   const [pageSize, setPageSize] = useState(10);
   const [sortKey, setSortKey] = useState("total_seconds");
@@ -300,6 +302,7 @@ export function AppTable({
         pageSize={pageSize}
         pageSizeOptions={[10, 20, 30]}
         onPageSizeChange={setPageSize}
+        onPageDataChange={onVisibleRowsChange}
         sortKey={sortKey}
         sortDir={sortDir}
         onSort={handleSort}

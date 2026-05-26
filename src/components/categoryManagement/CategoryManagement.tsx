@@ -9,7 +9,7 @@ import type { CategoryItem } from "../../types";
 export function CategoryManagement() {
   const { t } = useT();
   const loadCategories = useStore((s) => s.loadCategories);
-  const ensureAppIconsLoaded = useStore((s) => s.ensureAppIconsLoaded);
+  const ensureCategoryFileIconsLoaded = useStore((s) => s.ensureCategoryFileIconsLoaded);
   const [data, setData] = useState<CategoryItem[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -42,7 +42,7 @@ export function CategoryManagement() {
 
   const fetchData = async () => {
     try {
-      await Promise.all([loadCategories(true), ensureAppIconsLoaded(true)]);
+      await Promise.all([loadCategories(true)]);
       setData(useStore.getState().categories);
     } catch {
       pushToast("error", t("categoryManagement.saveFailed"));
@@ -55,6 +55,12 @@ export function CategoryManagement() {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleVisibleRowsChange = (rows: CategoryItem[]) => {
+    void ensureCategoryFileIconsLoaded(
+      rows.filter((row) => row.icon_source === "file").map((row) => row.id),
+    );
+  };
 
   return (
     <div>
@@ -112,6 +118,7 @@ export function CategoryManagement() {
             t={t as (key: string) => string}
             pushToast={pushToast}
             onRefresh={fetchData}
+            onVisibleRowsChange={handleVisibleRowsChange}
           />
         )}
       </div>

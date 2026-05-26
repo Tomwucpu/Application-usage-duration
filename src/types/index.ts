@@ -63,9 +63,7 @@ export interface CategorySummaryItem {
 export interface TrackerState {
   is_running: boolean;
   is_afk: boolean;
-  current_app: string;
   current_title: string;
-  current_icon: string;
   today_total_seconds: number;
 }
 
@@ -122,6 +120,13 @@ export interface AppMetadataItem {
   category_custom_icon_path: string | null;
   total_seconds: number;
   record_count: number;
+}
+
+export interface AppFilterOption {
+  app_name: string;
+  display_name: string | null;
+  category_id: number | null;
+  category_name: string | null;
 }
 
 export interface CategoryItem {

@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, params_from_iter, Connection};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -120,6 +120,14 @@ pub struct AppMetadataItem {
     pub category_custom_icon_path: Option<String>,
     pub total_seconds: i64,
     pub record_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppFilterOption {
+    pub app_name: String,
+    pub display_name: Option<String>,
+    pub category_id: Option<i64>,
+    pub category_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -691,38 +699,6 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_all_app_metadata(&self) -> Result<HashMap<String, String>, String> {
-        {
-            let cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
-            if let Some(ref cached) = *cache {
-                return Ok(cached.clone());
-            }
-        }
-
-        let conn = self.conn.lock().map_err(|e| e.to_string())?;
-        let mut stmt = conn
-            .prepare("SELECT app_name, app_path FROM app_metadata")
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })
-            .map_err(|e| e.to_string())?;
-        let mut map = HashMap::new();
-        for row in rows {
-            if let Ok((name, path)) = row {
-                map.insert(name, path);
-            }
-        }
-
-        {
-            let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
-            *cache = Some(map.clone());
-        }
-
-        Ok(map)
-    }
-
     pub fn get_today_total_seconds(&self, date: &str) -> Result<i64, String> {
         let conn = self.conn.lock().map_err(|e| e.to_string())?;
         conn.query_row(
@@ -1018,6 +994,77 @@ impl Database {
             .filter_map(|r| r.ok())
             .collect();
         Ok(items)
+    }
+
+    pub fn get_app_filter_options(&self) -> Result<Vec<AppFilterOption>, String> {
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn
+            .prepare(
+                "SELECT am.app_name, am.display_name, c.id, c.name
+                 FROM app_metadata am
+                 LEFT JOIN categories c ON am.category_id = c.id
+                 ORDER BY LOWER(COALESCE(am.display_name, am.app_name)) ASC",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let items = stmt
+            .query_map([], |row| {
+                Ok(AppFilterOption {
+                    app_name: row.get(0)?,
+                    display_name: row.get(1).ok(),
+                    category_id: row.get(2).ok(),
+                    category_name: row.get(3).ok(),
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        Ok(items)
+    }
+
+    pub fn get_app_icon_paths_by_names(
+        &self,
+        app_names: &[String],
+    ) -> Result<HashMap<String, (Option<String>, Option<String>, Option<String>)>, String> {
+        if app_names.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let placeholders = std::iter::repeat_n("?", app_names.len())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "SELECT app_name, app_path, custom_icon_path, default_icon_path
+             FROM app_metadata
+             WHERE app_name IN ({})",
+            placeholders,
+        );
+
+        let conn = self.conn.lock().map_err(|e| e.to_string())?;
+        let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params_from_iter(app_names.iter()), |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+
+        let mut result = HashMap::new();
+        for row in rows {
+            if let Ok((app_name, app_path, custom_icon_path, default_icon_path)) = row {
+                result.insert(
+                    app_name,
+                    (app_path, custom_icon_path, default_icon_path),
+                );
+            }
+        }
+
+        Ok(result)
     }
 
     pub fn set_app_display_name(&self, app_name: &str, display_name: Option<&str>) -> Result<(), String> {
