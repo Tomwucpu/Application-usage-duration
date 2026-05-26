@@ -1,14 +1,28 @@
-import { useEffect, useMemo, lazy, Suspense } from "react";
-import { useStore } from "../stores/useStore";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { useStore, api } from "../stores/useStore";
 import { useShallow } from "zustand/react/shallow";
 import { useT } from "../i18n";
 import type { Locale } from "../i18n";
-import type { AppSummary, CategorySummaryItem, UsageRankingItem } from "../types";
+import type { AppMetadataItem, UsageRankingItem } from "../types";
 import { AppRanking } from "./dashboard/AppRanking";
 import { getDisplayName } from "./AppNames";
 import { BUILTIN_CATEGORY_ICONS } from "./CategoryIcons";
+import { DropdownMenu } from "./shared/DropdownMenu";
 import { getBreakdownRange } from "../utils/dates";
 import { buildSeriesColorMap } from "../utils/chartColors";
+import {
+  DASHBOARD_APP_FILTER_STORAGE_KEY,
+  DASHBOARD_CATEGORY_FILTER_STORAGE_KEY,
+  buildAppSummaryFromRangeRows,
+  buildCategorySummaryFromRangeRows,
+  filterAppSummary,
+  filterBreakdownRowsByApps,
+  filterBreakdownRowsByCategories,
+  filterCategorySummaryItems,
+  getDashboardFilterLabel,
+  parseStoredNumberArray,
+  parseStoredStringArray,
+} from "./dashboard/filterDashboardItems";
 
 const StackedBarChart = lazy(async () => {
   const mod = await import("./StackedBarChart");
@@ -35,6 +49,45 @@ function formatTime(seconds: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function SelectedCheckIcon({ selected }: { selected: boolean }) {
+  if (!selected) {
+    return <span className="h-5 w-5 shrink-0" aria-hidden="true" />;
+  }
+
+  return (
+    <span
+      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1369ea]"
+      aria-hidden="true"
+    >
+      <svg
+        className="h-3.5 w-3.5"
+        viewBox="0 0 16 16"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M3.5 8.25L6.5 11.25L12.5 5.25"
+          stroke="#ffffff"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+}
+
+function reconcileSelectedValues<T extends string | number>(
+  values: T[],
+  validValues: Set<T>,
+): T[] {
+  return values.filter((value, index) => validValues.has(value) && values.indexOf(value) === index);
+}
+
+function arraysEqual<T extends string | number>(a: T[], b: T[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
 export function Dashboard() {
   const {
     tracker,
@@ -44,15 +97,18 @@ export function Dashboard() {
     loading,
     groupBy,
     appIcons,
+    displayNames,
     categoryFileIcons,
     hourlyBreakdown,
     rangeBreakdown,
     rangeBreakdownRange,
     hourlyCategoryBreakdown,
     rangeCategoryBreakdown,
+    rangeCategoryBreakdownRange,
     viewMode,
     customStartDate,
     customEndDate,
+    categories,
     loadHourlyBreakdown,
     loadRangeBreakdown,
     loadCategorySummary,
@@ -68,15 +124,18 @@ export function Dashboard() {
       loading: s.loading,
       groupBy: s.groupBy,
       appIcons: s.appIcons,
+      displayNames: s.displayNames,
       categoryFileIcons: s.categoryFileIcons,
       hourlyBreakdown: s.hourlyBreakdown,
       rangeBreakdown: s.rangeBreakdown,
       rangeBreakdownRange: s.rangeBreakdownRange,
       hourlyCategoryBreakdown: s.hourlyCategoryBreakdown,
       rangeCategoryBreakdown: s.rangeCategoryBreakdown,
+      rangeCategoryBreakdownRange: s.rangeCategoryBreakdownRange,
       viewMode: s.viewMode,
       customStartDate: s.customStartDate,
       customEndDate: s.customEndDate,
+      categories: s.categories,
       loadHourlyBreakdown: s.loadHourlyBreakdown,
       loadRangeBreakdown: s.loadRangeBreakdown,
       loadCategorySummary: s.loadCategorySummary,
@@ -86,6 +145,15 @@ export function Dashboard() {
     }),
   ));
   const { t, locale } = useT();
+  const [allApps, setAllApps] = useState<AppMetadataItem[]>([]);
+  const [historicalAppsLoaded, setHistoricalAppsLoaded] = useState(false);
+  const [historicalAppsRefreshTick, setHistoricalAppsRefreshTick] = useState(0);
+  const [selectedAppNames, setSelectedAppNames] = useState<string[]>(
+    () => parseStoredStringArray(localStorage.getItem(DASHBOARD_APP_FILTER_STORAGE_KEY)),
+  );
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(
+    () => parseStoredNumberArray(localStorage.getItem(DASHBOARD_CATEGORY_FILTER_STORAGE_KEY)),
+  );
 
   useEffect(() => {
     if (viewMode === "daily") {
@@ -112,81 +180,227 @@ export function Dashboard() {
     loadRangeCategoryBreakdown,
   ]);
 
+  useEffect(() => {
+    localStorage.setItem(DASHBOARD_APP_FILTER_STORAGE_KEY, JSON.stringify(selectedAppNames));
+  }, [selectedAppNames]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      DASHBOARD_CATEGORY_FILTER_STORAGE_KEY,
+      JSON.stringify(selectedCategoryIds),
+    );
+  }, [selectedCategoryIds]);
+
+  useEffect(() => {
+    const requestRefresh = () => {
+      setHistoricalAppsRefreshTick((current) => current + 1);
+    };
+
+    const handleWindowFocus = () => {
+      requestRefresh();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        requestRefresh();
+      }
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    let cancelled = false;
+    let retryTimerId: number | null = null;
+
+    void api.getAppMetadataList()
+      .then((apps) => {
+        if (!cancelled) {
+          setAllApps(apps);
+          setHistoricalAppsLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          retryTimerId = window.setTimeout(() => {
+            setHistoricalAppsRefreshTick((current) => current + 1);
+          }, 3000);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (retryTimerId !== null) {
+        window.clearTimeout(retryTimerId);
+      }
+    };
+  }, [
+    selectedDate,
+    viewMode,
+    customStartDate,
+    customEndDate,
+    loading,
+    historicalAppsRefreshTick,
+  ]);
+
+  const appFilterOptions = useMemo(() => {
+    const seen = new Set<string>();
+
+    return allApps
+      .filter((item) => {
+        if (seen.has(item.app_name)) {
+          return false;
+        }
+        seen.add(item.app_name);
+        return true;
+      })
+      .map((item) => ({
+        value: item.app_name,
+        label: getDisplayName(item.app_name),
+        icon: appIcons[item.app_name] || null,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, locale));
+  }, [allApps, appIcons, locale, displayNames]);
+
+  const categoryFilterOptions = useMemo(() => {
+    return categories.map((category) => ({
+      value: category.id,
+      label: category.name,
+    }));
+  }, [categories]);
+
+  const appFilterReady = historicalAppsLoaded;
+  const categoryFilterReady = categoryFilterOptions.length > 0;
+
+  const reconciledSelectedAppNames = useMemo(() => {
+    if (!appFilterReady) {
+      return selectedAppNames;
+    }
+
+    return reconcileSelectedValues(
+      selectedAppNames,
+      new Set(appFilterOptions.map((option) => option.value)),
+    );
+  }, [appFilterOptions, appFilterReady, selectedAppNames]);
+
+  const reconciledSelectedCategoryIds = useMemo(() => {
+    if (!categoryFilterReady) {
+      return selectedCategoryIds;
+    }
+
+    return reconcileSelectedValues(
+      selectedCategoryIds,
+      new Set(categoryFilterOptions.map((option) => option.value)),
+    );
+  }, [categoryFilterOptions, categoryFilterReady, selectedCategoryIds]);
+
+  const effectiveSelectedAppNames = appFilterReady ? reconciledSelectedAppNames : [];
+  const effectiveSelectedCategoryIds = categoryFilterReady ? reconciledSelectedCategoryIds : [];
+
+  useEffect(() => {
+    if (!appFilterReady) {
+      return;
+    }
+
+    setSelectedAppNames((current) => {
+      if (arraysEqual(current, reconciledSelectedAppNames)) {
+        return current;
+      }
+
+      return reconciledSelectedAppNames;
+    });
+  }, [appFilterReady, reconciledSelectedAppNames]);
+
+  useEffect(() => {
+    if (!categoryFilterReady) {
+      return;
+    }
+
+    setSelectedCategoryIds((current) => {
+      if (arraysEqual(current, reconciledSelectedCategoryIds)) {
+        return current;
+      }
+
+      return reconciledSelectedCategoryIds;
+    });
+  }, [categoryFilterReady, reconciledSelectedCategoryIds]);
+
+  const currentFilterLabel = groupBy === "app"
+    ? getDashboardFilterLabel(
+      effectiveSelectedAppNames,
+      appFilterOptions,
+      t("dashboard.filterApps"),
+      t("dashboard.selectedCount"),
+    )
+    : getDashboardFilterLabel(
+      effectiveSelectedCategoryIds,
+      categoryFilterOptions,
+      t("dashboard.filterCategories"),
+      t("dashboard.selectedCount"),
+    );
+
+  const filteredDailySummary = useMemo(() => {
+    return filterAppSummary(summary, effectiveSelectedAppNames);
+  }, [summary, effectiveSelectedAppNames]);
+
+  const filteredHourlyBreakdown = useMemo(() => {
+    return filterBreakdownRowsByApps(hourlyBreakdown, effectiveSelectedAppNames);
+  }, [hourlyBreakdown, effectiveSelectedAppNames]);
+
+  const filteredRangeBreakdown = useMemo(() => {
+    return filterBreakdownRowsByApps(rangeBreakdown, effectiveSelectedAppNames);
+  }, [rangeBreakdown, effectiveSelectedAppNames]);
+
+  const filteredDailyCategorySummary = useMemo(() => {
+    return filterCategorySummaryItems(categorySummary, effectiveSelectedCategoryIds);
+  }, [categorySummary, effectiveSelectedCategoryIds]);
+
+  const filteredHourlyCategoryBreakdown = useMemo(() => {
+    return filterBreakdownRowsByCategories(hourlyCategoryBreakdown, effectiveSelectedCategoryIds);
+  }, [hourlyCategoryBreakdown, effectiveSelectedCategoryIds]);
+
+  const filteredRangeCategoryBreakdown = useMemo(() => {
+    return filterBreakdownRowsByCategories(rangeCategoryBreakdown, effectiveSelectedCategoryIds);
+  }, [rangeCategoryBreakdown, effectiveSelectedCategoryIds]);
+
   const appDisplaySummary = useMemo(() => {
     if (viewMode === "daily") {
-      return summary || null;
+      return filteredDailySummary;
     }
+
     if (!rangeBreakdownRange) {
       return null;
     }
-    if (!rangeBreakdown || rangeBreakdown.length === 0) {
-      return { total_seconds: 0, apps: [], hourly: [] };
-    }
-    const appMap = new Map<string, number>();
-    let totalSecs = 0;
-    for (const item of rangeBreakdown) {
-      appMap.set(item.app_name, (appMap.get(item.app_name) || 0) + item.total_seconds);
-      totalSecs += item.total_seconds;
-    }
-    const apps: AppSummary[] = [...appMap.entries()]
-      .map(([app_name, total_seconds]) => ({
-        app_name,
-        total_seconds,
-        percentage: totalSecs > 0 ? (total_seconds / totalSecs) * 100 : 0,
-      }))
-      .sort((a, b) => b.total_seconds - a.total_seconds);
 
-    return {
-      total_seconds: totalSecs,
-      apps,
-      hourly: [],
-    };
-  }, [viewMode, summary, rangeBreakdown, rangeBreakdownRange]);
+    return buildAppSummaryFromRangeRows(filteredRangeBreakdown);
+  }, [viewMode, filteredDailySummary, rangeBreakdownRange, filteredRangeBreakdown]);
 
   const categoryDisplaySummary = useMemo(() => {
     if (viewMode === "daily") {
-      const total = categorySummary.reduce((sum, item) => sum + item.total_seconds, 0);
-      return {
-        total_seconds: total,
-        items: categorySummary,
-      };
-    }
-    if (!rangeCategoryBreakdown || rangeCategoryBreakdown.length === 0) {
-      return { total_seconds: 0, items: [] as CategorySummaryItem[] };
+      return filteredDailyCategorySummary;
     }
 
-    const categoryMap = new Map<number, CategorySummaryItem>();
-    let totalSecs = 0;
-    for (const item of rangeCategoryBreakdown) {
-      totalSecs += item.total_seconds;
-      const existing = categoryMap.get(item.category_id);
-      if (existing) {
-        existing.total_seconds += item.total_seconds;
-      } else {
-        categoryMap.set(item.category_id, {
-          category_id: item.category_id,
-          category_name: item.category_name,
-          icon_source: item.icon_source,
-          builtin_icon_key: item.builtin_icon_key,
-          custom_icon_path: item.custom_icon_path,
-          total_seconds: item.total_seconds,
-          percentage: 0,
-        });
-      }
+    if (!rangeCategoryBreakdownRange) {
+      return null;
     }
 
-    const items = [...categoryMap.values()]
-      .map((item) => ({
-        ...item,
-        percentage: totalSecs > 0 ? (item.total_seconds / totalSecs) * 100 : 0,
-      }))
-      .sort((a, b) => b.total_seconds - a.total_seconds);
-
-    return {
-      total_seconds: totalSecs,
-      items,
-    };
-  }, [viewMode, categorySummary, rangeCategoryBreakdown]);
+    return buildCategorySummaryFromRangeRows(filteredRangeCategoryBreakdown);
+  }, [
+    viewMode,
+    filteredDailyCategorySummary,
+    filteredRangeCategoryBreakdown,
+    rangeCategoryBreakdownRange,
+  ]);
 
   const rankingItems = useMemo<UsageRankingItem[]>(() => {
     if (groupBy === "app") {
@@ -199,7 +413,7 @@ export function Dashboard() {
       }));
     }
 
-    return categoryDisplaySummary.items.map((category) => {
+    return (categoryDisplaySummary?.items || []).map((category) => {
       let icon: string | null = null;
       if (category.icon_source === "file") {
         icon = categoryFileIcons[category.category_id] || null;
@@ -215,7 +429,14 @@ export function Dashboard() {
         percentage: category.percentage,
       };
     });
-  }, [groupBy, appDisplaySummary, appIcons, categoryDisplaySummary, categoryFileIcons]);
+  }, [
+    groupBy,
+    appDisplaySummary,
+    appIcons,
+    displayNames,
+    categoryDisplaySummary,
+    categoryFileIcons,
+  ]);
 
   const rankingColorMap = useMemo(() => {
     return buildSeriesColorMap(rankingItems.map((item) => item.label), null);
@@ -223,10 +444,10 @@ export function Dashboard() {
 
   const totalSeconds = groupBy === "app"
     ? (appDisplaySummary?.total_seconds || 0)
-    : categoryDisplaySummary.total_seconds;
+    : (categoryDisplaySummary?.total_seconds || 0);
   const count = groupBy === "app"
     ? (appDisplaySummary?.apps.length || 0)
-    : categoryDisplaySummary.items.length;
+    : (categoryDisplaySummary?.items.length || 0);
 
   return (
     <div className="space-y-6">
@@ -271,7 +492,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <button
           onClick={() => setGroupBy("app")}
           className={`px-3 py-1.5 text-sm rounded-lg border ${groupBy === "app" ? "bg-[#1369ea] text-white border-[#1369ea]" : "border-slate-200 dark:border-[#3f3f41] hover:bg-slate-100 dark:hover:bg-[#27272b]"}`}
@@ -284,6 +505,80 @@ export function Dashboard() {
         >
           {t("groupBy.category")}
         </button>
+
+        <DropdownMenu
+          label={currentFilterLabel}
+          minWidthClassName="min-w-[160px]"
+          buttonClassName="bg-white dark:bg-[#1d1d20] px-3 py-1.5"
+          menuClassName="w-[280px]"
+          scrollable
+          maxHeight={320}
+        >
+          {() => (
+            <div className="p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  if (groupBy === "app") {
+                    setSelectedAppNames([]);
+                    return;
+                  }
+                  setSelectedCategoryIds([]);
+                }}
+                className="mb-1 flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#27272b]"
+              >
+                <span>{t("dashboard.clearFilter")}</span>
+              </button>
+
+              {groupBy === "app"
+                ? appFilterOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() =>
+                      setSelectedAppNames(
+                        effectiveSelectedAppNames.includes(option.value)
+                          ? effectiveSelectedAppNames.filter((value) => value !== option.value)
+                          : [...effectiveSelectedAppNames, option.value],
+                      )
+                    }
+                    className="flex w-full items-center justify-between gap-3 rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#27272b]"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      {option.icon ? (
+                        <img
+                          src={`data:image/png;base64,${option.icon}`}
+                          alt=""
+                          className="h-4 w-4 rounded-sm shrink-0"
+                        />
+                      ) : (
+                        <span className="h-4 w-4 rounded-sm bg-slate-300 dark:bg-slate-600 shrink-0" />
+                      )}
+                      <span className="truncate">{option.label}</span>
+                    </span>
+                    <SelectedCheckIcon selected={effectiveSelectedAppNames.includes(option.value)} />
+                  </button>
+                ))
+                : categoryFilterOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() =>
+                      setSelectedCategoryIds(
+                        effectiveSelectedCategoryIds.includes(option.value)
+                          ? effectiveSelectedCategoryIds.filter((value) => value !== option.value)
+                          : [...effectiveSelectedCategoryIds, option.value],
+                      )
+                    }
+                    className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#27272b]"
+                  >
+                    <span>{option.label}</span>
+                    <SelectedCheckIcon selected={effectiveSelectedCategoryIds.includes(option.value)} />
+                  </button>
+                ))}
+            </div>
+          )}
+        </DropdownMenu>
       </div>
 
       {(groupBy === "app" ? appDisplaySummary : categoryDisplaySummary) ? (
@@ -308,10 +603,10 @@ export function Dashboard() {
           <Suspense fallback={<div className="text-center text-slate-500 py-8">{t("loading")}</div>}>
             <StackedBarChart
               groupBy={groupBy}
-              hourlyData={hourlyBreakdown}
-              dailyData={rangeBreakdown}
-              hourlyCategoryData={hourlyCategoryBreakdown}
-              dailyCategoryData={rangeCategoryBreakdown}
+              hourlyData={filteredHourlyBreakdown}
+              dailyData={filteredRangeBreakdown}
+              hourlyCategoryData={filteredHourlyCategoryBreakdown}
+              dailyCategoryData={filteredRangeCategoryBreakdown}
             />
           </Suspense>
 

@@ -7,6 +7,7 @@ import { DropdownMenu } from "../shared/DropdownMenu";
 import { api } from "../../stores/useStore";
 import type { AppMetadataItem, CategoryItem } from "../../types";
 import type { ToastTone } from "../shared/ToastStack";
+import { filterAppsBySearchAndCategories } from "./filterApps";
 
 function formatDuration(totalSeconds: number): string {
   const h = Math.floor(totalSeconds / 3600);
@@ -19,6 +20,7 @@ interface AppTableProps {
   data: AppMetadataItem[];
   categories: CategoryItem[];
   search: string;
+  selectedCategoryIds: number[];
   t: (key: string) => string;
   pushToast: (tone: ToastTone, message: string) => void;
   onRefresh: () => Promise<void>;
@@ -30,22 +32,25 @@ interface ConfirmState {
   appName: string;
 }
 
-export function AppTable({ data, categories, search, t, pushToast, onRefresh, appIcons }: AppTableProps) {
+export function AppTable({
+  data,
+  categories,
+  search,
+  selectedCategoryIds,
+  t,
+  pushToast,
+  onRefresh,
+  appIcons,
+}: AppTableProps) {
   const [pageSize, setPageSize] = useState(10);
   const [sortKey, setSortKey] = useState("total_seconds");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return data;
-    const q = search.toLowerCase();
-    return data.filter(
-      (item) =>
-        item.app_name.toLowerCase().includes(q)
-        || (item.display_name && item.display_name.toLowerCase().includes(q))
-        || (item.category_name && item.category_name.toLowerCase().includes(q)),
-    );
-  }, [data, search]);
+  const filtered = useMemo(
+    () => filterAppsBySearchAndCategories(data, search, selectedCategoryIds),
+    [data, search, selectedCategoryIds],
+  );
 
   const sorted = useMemo(() => {
     const sorted = [...filtered];
@@ -298,7 +303,7 @@ export function AppTable({ data, categories, search, t, pushToast, onRefresh, ap
         sortKey={sortKey}
         sortDir={sortDir}
         onSort={handleSort}
-        emptyText={search.trim() ? t("appManagement.noResults") : t("appManagement.noData")}
+        emptyText={search.trim() || selectedCategoryIds.length > 0 ? t("appManagement.noResults") : t("appManagement.noData")}
         className="mt-4"
       />
 

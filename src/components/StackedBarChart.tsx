@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceLine,
 } from "recharts";
 import type {
   DailyAppBreakdown,
@@ -33,6 +34,8 @@ interface Props {
   dailyCategoryData: DailyCategoryBreakdown[];
 }
 
+type ChartDatum = Record<string, string | number>;
+
 function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -41,8 +44,39 @@ function formatDuration(seconds: number): string {
   return `${seconds}s`;
 }
 
+export function calculateBucketTotalSeconds(
+  datum: ChartDatum,
+  axisKey: "hour" | "dateLabel",
+): number {
+  return Object.entries(datum).reduce((sum, [key, value]) => {
+    if (key === axisKey || typeof value !== "number") {
+      return sum;
+    }
+    return sum + value;
+  }, 0);
+}
+
+export function calculateAverageBucketSeconds(
+  rows: ChartDatum[],
+  axisKey: "hour" | "dateLabel",
+): number {
+  if (rows.length === 0) {
+    return 0;
+  }
+
+  const total = rows.reduce(
+    (sum, row) => sum + calculateBucketTotalSeconds(row, axisKey),
+    0,
+  );
+  return total / rows.length;
+}
+
+export function buildAverageLineLabel(label: string, seconds: number): string {
+  return `${label} ${formatDuration(seconds)}`;
+}
+
 interface ChartData {
-  chartData: Record<string, string | number>[];
+  chartData: ChartDatum[];
   appNames: string[];
   colorMap: Record<string, string>;
 }
@@ -284,6 +318,16 @@ export function StackedBarChart({ groupBy, hourlyData, dailyData, hourlyCategory
     return buildChartData(rows, bucketOrder, "dateLabel", othersLabel);
   }, [viewMode, groupBy, hourlyData, dailyData, hourlyCategoryData, dailyCategoryData, othersLabel, dateList, customDates]);
 
+  const axisKey = viewMode === "daily" ? "hour" : "dateLabel";
+  const averageSeconds = useMemo(
+    () => calculateAverageBucketSeconds(chartData, axisKey),
+    [chartData, axisKey],
+  );
+  const averageLabel = useMemo(
+    () => buildAverageLineLabel(t("chart.average"), averageSeconds),
+    [t, averageSeconds],
+  );
+
   const dayCount = viewMode === "daily" ? 24 : (viewMode === "custom" ? customDates.length : dateList.length);
   const xInterval = (() => {
     if (viewMode === "daily") return 3;
@@ -341,7 +385,7 @@ export function StackedBarChart({ groupBy, hourlyData, dailyData, hourlyCategory
           >
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-chart-grid)" />
             <XAxis
-              dataKey={viewMode === "daily" ? "hour" : "dateLabel"}
+              dataKey={axisKey}
               tick={{ fill: "var(--color-chart-tick)", fontSize: 11 }}
               tickLine={false}
               axisLine={false}
@@ -359,6 +403,18 @@ export function StackedBarChart({ groupBy, hourlyData, dailyData, hourlyCategory
                 <CustomTooltip colorMap={colorMap} hoveredApp={hoveredApp} />
               }
               cursor={{ fill: "var(--color-chart-cursor)" }}
+            />
+            <ReferenceLine
+              y={averageSeconds}
+              stroke="var(--color-chart-tick)"
+              strokeDasharray="6 4"
+              ifOverflow="extendDomain"
+              label={{
+                value: averageLabel,
+                position: "insideTopRight",
+                fill: "var(--color-chart-tick)",
+                fontSize: 11,
+              }}
             />
             {appNames.map((appName) => (
               <Bar
