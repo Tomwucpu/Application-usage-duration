@@ -22,7 +22,7 @@ import type {
 import { buildSeriesColorMap, getSeriesOrder } from "../utils/chartColors";
 import { getBreakdownRange, getDateList } from "../utils/dates";
 import { getDisplayName } from "./AppNames";
-import { DateNavigator } from "./dashboard/DateNavigator";
+import { DateNavigator, ViewModeSwitcher } from "./dashboard/DateNavigator";
 
 const TOP_N = 10;
 
@@ -37,11 +37,13 @@ interface Props {
 type ChartDatum = Record<string, string | number>;
 
 function formatDuration(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m`;
-  return `${seconds}s`;
+  const total = Math.round(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 export function calculateBucketTotalSeconds(
@@ -206,20 +208,21 @@ function BreakdownHeader({
   onCustomRangeChange: (start: string, end: string) => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 flex-wrap">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          {title}
-        </h2>
-      </div>
+    <div className="flex items-center justify-between">
+      <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        {title}
+      </h2>
       <DateNavigator
         selectedDate={selectedDate}
         viewMode={viewMode}
         customStartDate={customStartDate}
         customEndDate={customEndDate}
         onDateChange={onDateChange}
-        onViewModeChange={onViewModeChange}
         onCustomRangeChange={onCustomRangeChange}
+      />
+      <ViewModeSwitcher
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
       />
     </div>
   );
@@ -390,7 +393,7 @@ export function StackedBarChart({ groupBy, hourlyData, dailyData, hourlyCategory
               ifOverflow="extendDomain"
               label={{
                 value: averageLabel,
-                position: "insideTopRight",
+                position: "insideBottomRight",
                 fill: "var(--color-chart-tick)",
                 fontSize: 11,
               }}

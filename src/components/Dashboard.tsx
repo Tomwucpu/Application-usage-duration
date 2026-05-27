@@ -32,14 +32,15 @@ const StackedBarChart = lazy(async () => {
 function formatDuration(seconds: number, locale: Locale): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
   if (locale === "zh-CN") {
-    if (h > 0) return `${h} 小时 ${m} 分钟`;
-    if (m > 0) return `${m} 分钟`;
-    return `${seconds} 秒`;
+    if (h > 0) return `${h} 小时 ${m} 分钟 ${s} 秒`;
+    if (m > 0) return `${m} 分钟 ${s} 秒`;
+    return `${s} 秒`;
   }
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m`;
-  return `${seconds}s`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 function formatTime(seconds: number): string {

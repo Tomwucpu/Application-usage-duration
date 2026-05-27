@@ -201,10 +201,6 @@ input[type="number"]::-webkit-inner-spin-button {
   background-clip: content-box;
 }
 
-.date-strip {
-  min-width: 240px;
-}
-
 .date-strip-arrow {
   display: flex;
   height: 2rem;
@@ -217,7 +213,6 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .date-strip-display {
   display: inline-flex;
-  min-width: 160px;
   height: 2rem;
   align-items: center;
   justify-content: center;
@@ -226,6 +221,7 @@ input[type="number"]::-webkit-inner-spin-button {
   font-weight: 600;
   line-height: 1;
   text-align: center;
+  white-space: nowrap;
   color: var(--color-date-display);
   letter-spacing: -0.01em;
 }

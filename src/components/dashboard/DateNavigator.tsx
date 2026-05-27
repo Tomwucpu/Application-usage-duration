@@ -11,7 +11,6 @@ interface DateNavigatorProps {
   customStartDate: string | null;
   customEndDate: string | null;
   onDateChange: (date: string) => void | Promise<void>;
-  onViewModeChange: (mode: ViewMode) => void;
   onCustomRangeChange: (start: string, end: string) => void;
 }
 
@@ -38,7 +37,6 @@ export function DateNavigator({
   customStartDate,
   customEndDate,
   onDateChange,
-  onViewModeChange,
   onCustomRangeChange,
 }: DateNavigatorProps) {
   const { t, locale } = useT();
@@ -74,7 +72,7 @@ export function DateNavigator({
     : monthRange.start === currentMonthRange.start && monthRange.end === currentMonthRange.end;
 
   return (
-    <div className="flex items-center justify-end gap-3 flex-wrap">
+    <div className="flex items-center">
       {viewMode === "daily" && (
         <DatePicker value={selectedDate} onChange={onDateChange} locale={locale} />
       )}
@@ -129,23 +127,34 @@ export function DateNavigator({
           compact
         />
       )}
+    </div>
+  );
+}
 
-      <div className="inline-flex w-fit rounded-2xl border border-slate-200/80 bg-white p-1 shadow-sm shadow-slate-200/70 dark:border-[#3f3f41] dark:bg-[#1d1d20] dark:shadow-black/20">
-        {(["daily", "weekly", "monthly", "custom"] as const).map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            onClick={() => onViewModeChange(mode)}
-            className={`px-3 py-1.5 text-sm font-medium rounded-xl transition-all duration-200 whitespace-nowrap ${
-              viewMode === mode
-                ? "bg-[#0060df] text-white shadow-sm"
-                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#27272b]"
-            }`}
-          >
-            {t(`breakdown.${mode}`)}
-          </button>
-        ))}
-      </div>
+interface ViewModeSwitcherProps {
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+}
+
+export function ViewModeSwitcher({ viewMode, onViewModeChange }: ViewModeSwitcherProps) {
+  const { t } = useT();
+
+  return (
+    <div className="inline-flex w-fit rounded-2xl border border-slate-200/80 bg-white p-1 shadow-sm shadow-slate-200/70 dark:border-[#3f3f41] dark:bg-[#1d1d20] dark:shadow-black/20">
+      {(["daily", "weekly", "monthly", "custom"] as const).map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          onClick={() => onViewModeChange(mode)}
+          className={`px-3 py-1.5 text-sm font-medium rounded-xl transition-all duration-200 whitespace-nowrap ${
+            viewMode === mode
+              ? "bg-[#0060df] text-white shadow-sm"
+              : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#27272b]"
+          }`}
+        >
+          {t(`breakdown.${mode}`)}
+        </button>
+      ))}
     </div>
   );
 }

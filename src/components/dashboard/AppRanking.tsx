@@ -11,13 +11,18 @@ interface Props {
 }
 
 function formatDuration(seconds: number, locale: Locale): string {
-  const m = Math.floor(seconds / 60);
+  const total = Math.round(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
   if (locale === "zh-CN") {
-    if (m >= 60) return `${Math.floor(m / 60)} 小时 ${m % 60} 分钟`;
-    return `${m} 分钟`;
+    if (h > 0) return `${h} 小时 ${m} 分钟 ${s} 秒`;
+    if (m > 0) return `${m} 分钟 ${s} 秒`;
+    return `${s} 秒`;
   }
-  if (m >= 60) return `${Math.floor(m / 60)}h ${m % 60}m`;
-  return `${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 function RankingIcon({ icon, name }: { icon?: string | null; name: string }) {

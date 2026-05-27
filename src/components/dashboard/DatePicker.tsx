@@ -106,8 +106,8 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
 
   return (
     // 单日期选择
-    <div ref={containerRef} className="relative z-50 flex items-center gap-3">
-     <div className="date-strip flex items-center rounded-2xl border border-slate-200/80 bg-white px-2 py-1 shadow-sm shadow-slate-200/70 dark:border-[#3f3f41] dark:bg-[#1d1d20] dark:shadow-black/20">
+    <div ref={containerRef} className="relative z-50 flex items-center">
+     <div className="date-strip flex min-w-0 w-fit items-center rounded-2xl border border-slate-200/80 bg-white px-2 py-1 shadow-sm shadow-slate-200/70 dark:border-[#3f3f41] dark:bg-[#1d1d20] dark:shadow-black/20">
         <button
           type="button"
           onClick={() => changeByDays(-1)}
@@ -122,7 +122,7 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
         <button
           type="button"
           onClick={() => setOpen((current) => !current)}
-          className="date-strip-display"
+          className="date-strip-display whitespace-nowrap"
           aria-haspopup="dialog"
           aria-expanded={open}
         >
