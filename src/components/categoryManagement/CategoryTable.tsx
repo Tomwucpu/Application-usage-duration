@@ -74,7 +74,7 @@ export function CategoryTable({ data, search, t, pushToast, onRefresh, onVisible
     {
       key: "icon",
       header: t("categoryManagement.icon"),
-      width: "70px",
+      width: "50px",
       render: (item) => (
         <CategoryIcon
           iconSource={item.icon_source}
@@ -89,7 +89,7 @@ export function CategoryTable({ data, search, t, pushToast, onRefresh, onVisible
     {
       key: "icon_path",
       header: "Icon",
-      width: "260px",
+      width: "240px",
       render: (item) => (
         <CategoryIconPicker
           item={item}
@@ -114,13 +114,13 @@ export function CategoryTable({ data, search, t, pushToast, onRefresh, onVisible
     {
       key: "app_count",
       header: t("categoryManagement.appCount"),
-      width: "90px",
+      width: "70px",
       render: (item) => <span className="tabular-nums">{item.app_count}</span>,
     },
     {
       key: "total_seconds",
       header: t("categoryManagement.totalTime"),
-      width: "90px",
+      width: "120px",
       render: (item) => <span className="tabular-nums">{formatDuration(item.total_seconds)}</span>,
     },
     {
