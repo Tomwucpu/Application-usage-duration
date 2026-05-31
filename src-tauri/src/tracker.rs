@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -21,8 +21,6 @@ pub struct TrackerState {
     #[serde(skip)]
     pub last_app_path: Option<String>,
     #[serde(skip)]
-    pub last_window_title: Option<String>,
-    #[serde(skip)]
     pub last_start: Option<chrono::DateTime<chrono::Local>>,
 }
 
@@ -43,7 +41,6 @@ impl Tracker {
                 today_total_seconds: 0,
                 last_app: None,
                 last_app_path: None,
-                last_window_title: None,
                 last_start: None,
             })),
             db,
@@ -63,14 +60,18 @@ impl Tracker {
 
 // NameCache: caches FileDescription lookups per executable path,
 // so each .exe's version info is only read once.
+const NAME_CACHE_MAX: usize = 200;
+
 pub struct NameCache {
     cache: Mutex<HashMap<String, Option<String>>>,
+    order: Mutex<VecDeque<String>>,
 }
 
 impl NameCache {
     pub fn new() -> Self {
         NameCache {
             cache: Mutex::new(HashMap::new()),
+            order: Mutex::new(VecDeque::new()),
         }
     }
 
@@ -83,10 +84,17 @@ impl NameCache {
         }
 
         let desc = get_file_description(exe_path);
-        self.cache
-            .lock()
-            .unwrap()
-            .insert(exe_path.to_string(), desc.clone());
+        let mut cache = self.cache.lock().unwrap();
+        cache.insert(exe_path.to_string(), desc.clone());
+
+        let mut order = self.order.lock().unwrap();
+        order.push_back(exe_path.to_string());
+        while order.len() > NAME_CACHE_MAX {
+            if let Some(oldest) = order.pop_front() {
+                cache.remove(&oldest);
+            }
+        }
+
         desc
     }
 }
@@ -360,7 +368,6 @@ pub fn flush_tracking(db: &Database, state: &Mutex<TrackerState>) -> Result<(), 
     struct FlushRecord {
         app: String,
         app_path: Option<String>,
-        window_title: Option<String>,
         start_str: String,
         end_str: String,
         duration: i64,
@@ -391,7 +398,6 @@ pub fn flush_tracking(db: &Database, state: &Mutex<TrackerState>) -> Result<(), 
                         Some(FlushRecord {
                             app: app.clone(),
                             app_path: current_state.last_app_path.clone(),
-                            window_title: current_state.last_window_title.clone(),
                             start_str,
                             end_str,
                             duration,
@@ -417,7 +423,7 @@ pub fn flush_tracking(db: &Database, state: &Mutex<TrackerState>) -> Result<(), 
         db.insert_usage(
             &r.app,
             r.app_path.as_deref(),
-            r.window_title.as_deref(),
+            None,
             &r.start_str,
             &r.end_str,
             r.duration,
@@ -591,7 +597,6 @@ fn process_foreground_change(
         finalize_current_session(db, &mut current_state, now);
         current_state.last_app = Some("AFK".to_string());
         current_state.last_app_path = None;
-        current_state.last_window_title = None;
         current_state.last_start = None;
         current_state.is_afk = true;
         current_state.current_title = format!("空闲 {} 秒", idle_secs);
@@ -626,7 +631,6 @@ fn process_foreground_change(
 
                 current_state.last_app = Some(display_name);
                 current_state.last_app_path = app_path.clone();
-                current_state.last_window_title = None;
                 current_state.last_start = Some(now);
             }
         }
@@ -655,7 +659,7 @@ fn finalize_current_session(
                 let _ = db.insert_usage(
                     app,
                     state.last_app_path.as_deref(),
-                    state.last_window_title.as_deref(),
+                    None,
                     &start_str,
                     &end_str,
                     duration,
@@ -691,7 +695,6 @@ fn check_afk_transition(
         finalize_current_session(db, &mut current_state, now);
         current_state.last_app = Some("AFK".to_string());
         current_state.last_app_path = None;
-        current_state.last_window_title = None;
         current_state.last_start = None;
         current_state.is_afk = true;
         current_state.current_title = format!("空闲 {} 秒", idle_secs);
@@ -755,7 +758,6 @@ mod tests {
             today_total_seconds: 42,
             last_app: None,
             last_app_path: None,
-            last_window_title: None,
             last_start: None,
         };
 

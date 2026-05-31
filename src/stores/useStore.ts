@@ -24,70 +24,25 @@ import { addDays, getBreakdownRange, getTodayString } from "../utils/dates";
 import { syncDisplayNamesSnapshot } from "../utils/displayNames";
 import { createBoundedIconCache, mergeBoundedIconCache } from "./iconCache";
 
-const shouldLogBaseline = typeof location !== "undefined" && location.hostname === "localhost";
-
-function logBaseline(message: string) {
-  if (shouldLogBaseline) {
-    console.debug(message);
-  }
-}
-
 export const api = {
   getSetting: async (key: string) => {
-    const t0 = performance.now();
-    const res = await invoke<string | null>("get_setting", { key });
-    const t1 = Math.round(performance.now() - t0);
-    try {
-      const size = res ? JSON.stringify(res).length : 0;
-      logBaseline(`[baseline] get_setting ${key} ${t1}ms size=${size}`);
-    } catch {
-      logBaseline(`[baseline] get_setting ${key} ${t1}ms`);
-    }
-    return res;
+    return await invoke<string | null>("get_setting", { key });
   },
   setSetting: async (key: string, value: string) => {
-    const t0 = performance.now();
-    const res = await invoke<void>("set_setting", { key, value });
-    const t1 = Math.round(performance.now() - t0);
-    logBaseline(`[baseline] set_setting ${key} ${t1}ms`);
-    return res;
+    return await invoke<void>("set_setting", { key, value });
   },
   getAllAppNames: async () => {
-    const t0 = performance.now();
-    const res = await invoke<string[]>("get_all_app_names");
-    const t1 = Math.round(performance.now() - t0);
-    try {
-      logBaseline(`[baseline] get_all_app_names ${t1}ms size=${JSON.stringify(res).length}`);
-    } catch {
-      logBaseline(`[baseline] get_all_app_names ${t1}ms`);
-    }
-    return res;
+    return await invoke<string[]>("get_all_app_names");
   },
   getAppIconsByNames: async (appNames: string[]) => {
-    const t0 = performance.now();
-    const res = await invoke<Record<string, string>>("get_app_icons_by_names", { appNames });
-    const t1 = Math.round(performance.now() - t0);
-    try {
-      logBaseline(`[baseline] get_app_icons_by_names ${t1}ms size=${Object.keys(res || {}).length}`);
-    } catch {
-      logBaseline(`[baseline] get_app_icons_by_names ${t1}ms`);
-    }
-    return res;
+    return await invoke<Record<string, string>>("get_app_icons_by_names", { appNames });
   },
   getCategoryFileIconsByIds: async (categoryIds: number[]) => {
     const res = await invoke<Record<number, string>>("get_category_file_icons_by_ids", { categoryIds });
     return res;
   },
   getAllRecords: async () => {
-    const t0 = performance.now();
-    const res = await invoke<UsageRecord[]>("get_all_records");
-    const t1 = Math.round(performance.now() - t0);
-    try {
-      logBaseline(`[baseline] get_all_records ${t1}ms size=${JSON.stringify(res).length}`);
-    } catch {
-      logBaseline(`[baseline] get_all_records ${t1}ms`);
-    }
-    return res;
+    return await invoke<UsageRecord[]>("get_all_records");
   },
   getRecordsRange: async (startDate: string, endDate: string, offset: number, limit: number) => {
     const res = await invoke<UsageRecord[]>("get_records_range", {
@@ -107,26 +62,10 @@ export const api = {
     return res;
   },
   getAppMetadataList: async () => {
-    const t0 = performance.now();
-    const res = await invoke<AppMetadataItem[]>("get_all_app_metadata_list");
-    const t1 = Math.round(performance.now() - t0);
-    try {
-      logBaseline(`[baseline] get_all_app_metadata_list ${t1}ms size=${JSON.stringify(res).length}`);
-    } catch {
-      logBaseline(`[baseline] get_all_app_metadata_list ${t1}ms`);
-    }
-    return res;
+    return await invoke<AppMetadataItem[]>("get_all_app_metadata_list");
   },
   getAppFilterOptions: async () => {
-    const t0 = performance.now();
-    const res = await invoke<AppFilterOption[]>("get_app_filter_options");
-    const t1 = Math.round(performance.now() - t0);
-    try {
-      logBaseline(`[baseline] get_app_filter_options ${t1}ms size=${JSON.stringify(res).length}`);
-    } catch {
-      logBaseline(`[baseline] get_app_filter_options ${t1}ms`);
-    }
-    return res;
+    return await invoke<AppFilterOption[]>("get_app_filter_options");
   },
   setAppDisplayName: async (appName: string, displayName: string | null) => {
     await invoke<void>("set_app_display_name", { appName, displayName });
@@ -188,7 +127,6 @@ export const api = {
   },
 };
 
-type TabId = "dashboard" | "breakdown";
 type Theme = "light" | "dark";
 
 interface Store {
@@ -197,13 +135,10 @@ interface Store {
   categorySummary: CategorySummaryItem[];
   selectedDate: string;
   loading: boolean;
-  activeTab: TabId;
   theme: Theme;
   groupBy: GroupBy;
   hourlyBreakdown: HourlyAppBreakdown[];
   hourlyBreakdownDate: string | null;
-  dailyBreakdown: DailyAppBreakdown[];
-  dailyBreakdownRange: { start: string; end: string } | null;
   rangeBreakdown: DailyAppBreakdown[];
   rangeBreakdownRange: { start: string; end: string } | null;
   hourlyCategoryBreakdown: HourlyCategoryBreakdown[];
@@ -222,14 +157,12 @@ interface Store {
   init: () => Promise<() => void>;
   setDate: (date: string) => Promise<void>;
   refresh: () => Promise<void>;
-  setActiveTab: (tab: TabId) => void;
   setActiveView: (view: PageView) => void;
   setTheme: (theme: Theme) => void;
   setViewMode: (mode: ViewMode) => void;
   setGroupBy: (groupBy: GroupBy) => void;
   setCustomRange: (start: string, end: string) => void;
   loadHourlyBreakdown: (date: string, force?: boolean) => Promise<void>;
-  loadDailyBreakdown: (date: string, force?: boolean) => Promise<void>;
   loadRangeBreakdown: (start: string, end: string, force?: boolean) => Promise<void>;
   loadCategorySummary: (date: string, force?: boolean) => Promise<void>;
   loadHourlyCategoryBreakdown: (date: string, force?: boolean) => Promise<void>;
@@ -252,13 +185,10 @@ export const useStore = create<Store>((set, get) => ({
   categorySummary: [],
   selectedDate: getTodayString(),
   loading: false,
-  activeTab: "dashboard",
   theme: (localStorage.getItem("theme") as Theme) || "dark",
   groupBy: (localStorage.getItem("groupBy") as GroupBy) || "app",
   hourlyBreakdown: [],
   hourlyBreakdownDate: null,
-  dailyBreakdown: [],
-  dailyBreakdownRange: null,
   rangeBreakdown: [],
   rangeBreakdownRange: null,
   hourlyCategoryBreakdown: [],
@@ -378,10 +308,6 @@ export const useStore = create<Store>((set, get) => ({
     }
   },
 
-  setActiveTab: (tab: TabId) => {
-    set({ activeTab: tab });
-  },
-
   setActiveView: (view: PageView) => {
     set({ activeView: view });
   },
@@ -464,8 +390,6 @@ export const useStore = create<Store>((set, get) => ({
     set({
       rangeBreakdown: data,
       rangeBreakdownRange: { start, end },
-      dailyBreakdown: data,
-      dailyBreakdownRange: { start, end },
     });
   },
 
@@ -486,12 +410,6 @@ export const useStore = create<Store>((set, get) => ({
       rangeCategoryBreakdown: data,
       rangeCategoryBreakdownRange: { start, end },
     });
-  },
-
-  loadDailyBreakdown: async (date: string, force = false) => {
-    const range = getBreakdownRange("daily", date, null, null);
-    if (!range) return;
-    await get().loadRangeBreakdown(range.start, range.end, force);
   },
 
   ensureAppIconsLoaded: async (appNames: string[], force = false) => {

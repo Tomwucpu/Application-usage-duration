@@ -21,15 +21,6 @@ export function getExportFileName(
   return `usage-export-${date.toISOString().slice(0, 10)}.${format}`;
 }
 
-export function buildJsonExport(records: UsageRecord[]): string {
-  return JSON.stringify(records, null, 2);
-}
-
-export function buildCsvExport(records: UsageRecord[]): string {
-  const rows = records.map((record) => buildCsvRow(record));
-  return [buildCsvHeader(), ...rows].join("\n");
-}
-
 export function buildCsvHeader(): string {
   return EXPORT_COLUMNS.join(",");
 }

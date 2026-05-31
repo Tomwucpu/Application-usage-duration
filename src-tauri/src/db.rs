@@ -157,7 +157,6 @@ const DEFAULT_CATEGORIES: [(&str, &str, &str, i32, bool); 7] = [
 
 pub struct Database {
     pub conn: Mutex<Connection>,
-    metadata_cache: Mutex<Option<HashMap<String, String>>>,
 }
 
 fn seed_default_categories(conn: &Connection) -> Result<(), rusqlite::Error> {
@@ -249,7 +248,6 @@ impl Database {
 
         Ok(Database {
             conn: Mutex::new(conn),
-            metadata_cache: Mutex::new(None),
         })
     }
 
@@ -693,8 +691,6 @@ impl Database {
         )
         .map_err(|e| e.to_string())?;
 
-        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
-        *cache = None;
 
         Ok(())
     }
@@ -1075,8 +1071,6 @@ impl Database {
         )
         .map_err(|e| e.to_string())?;
 
-        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
-        *cache = None;
 
         Ok(())
     }
@@ -1089,8 +1083,6 @@ impl Database {
         )
         .map_err(|e| e.to_string())?;
 
-        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
-        *cache = None;
 
         Ok(())
     }
@@ -1103,8 +1095,6 @@ impl Database {
         )
         .map_err(|e| e.to_string())?;
 
-        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
-        *cache = None;
 
         Ok(())
     }
@@ -1117,8 +1107,6 @@ impl Database {
         )
         .map_err(|e| e.to_string())?;
 
-        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
-        *cache = None;
 
         Ok(())
     }
@@ -1136,8 +1124,6 @@ impl Database {
             params![app_name],
         );
 
-        let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
-        *cache = None;
 
         Ok(deleted)
     }
@@ -1161,8 +1147,6 @@ impl Database {
         match result {
             Ok(()) => {
                 conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
-                let mut cache = self.metadata_cache.lock().map_err(|e| e.to_string())?;
-                *cache = None;
                 Ok(())
             }
             Err(e) => {

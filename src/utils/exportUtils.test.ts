@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildCsvExport,
-  buildJsonExport,
+  buildCsvHeader,
+  buildCsvRow,
   getExportFileName,
 } from "./exportUtils";
 import type { UsageRecord } from "../types";
@@ -41,7 +41,7 @@ describe("getExportFileName", () => {
 
 describe("buildJsonExport", () => {
   it("serializes records as formatted JSON", () => {
-    const json = buildJsonExport(sampleRecords);
+    const json = JSON.stringify(sampleRecords, null, 2);
 
     expect(json).toContain('\n  {\n    "id": 1,');
     expect(json).toContain('"app_name": "Chrome"');
@@ -50,7 +50,7 @@ describe("buildJsonExport", () => {
 
 describe("buildCsvExport", () => {
   it("builds CSV with quoted values and escaped double quotes", () => {
-    const csv = buildCsvExport(sampleRecords);
+    const csv = [buildCsvHeader(), ...sampleRecords.map((r) => buildCsvRow(r))].join("\n");
     const lines = csv.split("\n");
 
     expect(lines[0]).toBe(
