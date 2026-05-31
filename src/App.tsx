@@ -53,7 +53,8 @@ function NavButton({
 function AppInner() {
   const init = useStore((s) => s.init);
   const theme = useStore((s) => s.theme);
-  const tracker = useStore((s) => s.tracker);
+  const isRunning = useStore((s) => s.tracker.is_running);
+  const isAfk = useStore((s) => s.tracker.is_afk);
   const displayNames = useStore((s) => s.displayNames);
   const activeView = useStore((s) => s.activeView);
   const setActiveView = useStore((s) => s.setActiveView);
@@ -98,14 +99,14 @@ function AppInner() {
           <div className="flex items-center gap-2">
             <span
               className={`h-3 w-3 rounded-full ${
-                tracker.is_running ? "bg-green-500" : "bg-red-500"
+                isRunning ? "bg-green-500" : "bg-red-500"
               }`}
             />
             <span className="text-sm text-slate-500 dark:text-slate-400">
-              {tracker.is_running ? t("status.tracking") : t("status.stopped")}
+              {isRunning ? t("status.tracking") : t("status.stopped")}
             </span>
           </div>
-          {tracker.is_afk && (
+          {isAfk && (
             <span className="text-xs bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded">
               {t("status.afk")}
             </span>

@@ -71,14 +71,12 @@ export interface HourlyAppBreakdown {
   hour: number;
   app_name: string;
   total_seconds: number;
-  percentage: number;
 }
 
 export interface DailyAppBreakdown {
   date: string;
   app_name: string;
   total_seconds: number;
-  percentage: number;
 }
 
 export interface HourlyCategoryBreakdown {
@@ -89,7 +87,6 @@ export interface HourlyCategoryBreakdown {
   builtin_icon_key: string | null;
   custom_icon_path: string | null;
   total_seconds: number;
-  percentage: number;
 }
 
 export interface DailyCategoryBreakdown {
@@ -100,7 +97,6 @@ export interface DailyCategoryBreakdown {
   builtin_icon_key: string | null;
   custom_icon_path: string | null;
   total_seconds: number;
-  percentage: number;
 }
 
 export type ViewMode = "daily" | "weekly" | "monthly" | "custom";

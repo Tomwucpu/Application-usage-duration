@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, memo } from "react";
 import type { Locale } from "../../i18n";
 import { addDays, fmtLocalDate, parseDate, shiftCalendarMonth } from "../../utils/dates";
 
@@ -42,7 +42,7 @@ function formatSelectedDisplay(date: Date, locale: Locale): string {
       }).format(date);
 }
 
-export function DatePicker({ value, onChange, locale }: DatePickerProps) {
+export const DatePicker = memo(function DatePicker({ value, onChange, locale }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const selectedDate = useMemo(() => parseDate(value), [value]);
   const [visibleMonth, setVisibleMonth] = useState(
@@ -212,4 +212,4 @@ export function DatePicker({ value, onChange, locale }: DatePickerProps) {
       )}
     </div>
   );
-}
+})

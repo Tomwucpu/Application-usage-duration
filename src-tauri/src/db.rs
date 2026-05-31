@@ -29,7 +29,6 @@ pub struct HourlyAppBreakdown {
     pub hour: i32,
     pub app_name: String,
     pub total_seconds: i64,
-    pub percentage: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,7 +36,6 @@ pub struct DailyAppBreakdown {
     pub date: String,
     pub app_name: String,
     pub total_seconds: i64,
-    pub percentage: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,7 +58,6 @@ pub struct HourlyCategoryBreakdown {
     pub builtin_icon_key: Option<String>,
     pub custom_icon_path: Option<String>,
     pub total_seconds: i64,
-    pub percentage: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -72,7 +69,6 @@ pub struct DailyCategoryBreakdown {
     pub builtin_icon_key: Option<String>,
     pub custom_icon_path: Option<String>,
     pub total_seconds: i64,
-    pub percentage: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -473,35 +469,16 @@ impl Database {
             )
             .map_err(|e| e.to_string())?;
 
-        let rows: Vec<(i32, String, i64)> = stmt
+        let result: Vec<HourlyAppBreakdown> = stmt
             .query_map(params![date], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                Ok(HourlyAppBreakdown {
+                    hour: row.get(0)?,
+                    app_name: row.get(1)?,
+                    total_seconds: row.get(2)?,
+                })
             })
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
-            .collect();
-
-        let mut hour_totals: HashMap<i32, i64> = HashMap::new();
-        for (hour, _, secs) in &rows {
-            *hour_totals.entry(*hour).or_default() += secs;
-        }
-
-        let result: Vec<HourlyAppBreakdown> = rows
-            .into_iter()
-            .map(|(hour, app_name, total_seconds)| {
-                let total = hour_totals.get(&hour).copied().unwrap_or(0);
-                let percentage = if total > 0 {
-                    (total_seconds as f64 / total as f64) * 100.0
-                } else {
-                    0.0
-                };
-                HourlyAppBreakdown {
-                    hour,
-                    app_name,
-                    total_seconds,
-                    percentage,
-                }
-            })
             .collect();
 
         Ok(result)
@@ -521,47 +498,20 @@ impl Database {
             )
             .map_err(|e| e.to_string())?;
 
-        let rows: Vec<(i32, i64, String, String, Option<String>, Option<String>, i64)> = stmt
+        let result: Vec<HourlyCategoryBreakdown> = stmt
             .query_map(params![date], |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4).ok(),
-                    row.get(5).ok(),
-                    row.get(6)?,
-                ))
+                Ok(HourlyCategoryBreakdown {
+                    hour: row.get(0)?,
+                    category_id: row.get(1)?,
+                    category_name: row.get(2)?,
+                    icon_source: row.get(3)?,
+                    builtin_icon_key: row.get(4).ok(),
+                    custom_icon_path: row.get(5).ok(),
+                    total_seconds: row.get(6)?,
+                })
             })
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
-            .collect();
-
-        let mut hour_totals: HashMap<i32, i64> = HashMap::new();
-        for (hour, _, _, _, _, _, secs) in &rows {
-            *hour_totals.entry(*hour).or_default() += secs;
-        }
-
-        let result = rows
-            .into_iter()
-            .map(|(hour, category_id, category_name, icon_source, builtin_icon_key, custom_icon_path, total_seconds)| {
-                let total = hour_totals.get(&hour).copied().unwrap_or(0);
-                let percentage = if total > 0 {
-                    (total_seconds as f64 / total as f64) * 100.0
-                } else {
-                    0.0
-                };
-                HourlyCategoryBreakdown {
-                    hour,
-                    category_id,
-                    category_name,
-                    icon_source,
-                    builtin_icon_key,
-                    custom_icon_path,
-                    total_seconds,
-                    percentage,
-                }
-            })
             .collect();
 
         Ok(result)
@@ -581,35 +531,16 @@ impl Database {
             )
             .map_err(|e| e.to_string())?;
 
-        let rows: Vec<(String, String, i64)> = stmt
+        let result: Vec<DailyAppBreakdown> = stmt
             .query_map(params![start_date, end_date], |row| {
-                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                Ok(DailyAppBreakdown {
+                    date: row.get(0)?,
+                    app_name: row.get(1)?,
+                    total_seconds: row.get(2)?,
+                })
             })
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
-            .collect();
-
-        let mut date_totals: HashMap<String, i64> = HashMap::new();
-        for (date, _, secs) in &rows {
-            *date_totals.entry(date.clone()).or_default() += secs;
-        }
-
-        let result: Vec<DailyAppBreakdown> = rows
-            .into_iter()
-            .map(|(date, app_name, total_seconds)| {
-                let total = date_totals.get(&date).copied().unwrap_or(0);
-                let percentage = if total > 0 {
-                    (total_seconds as f64 / total as f64) * 100.0
-                } else {
-                    0.0
-                };
-                DailyAppBreakdown {
-                    date,
-                    app_name,
-                    total_seconds,
-                    percentage,
-                }
-            })
             .collect();
 
         Ok(result)
@@ -633,47 +564,20 @@ impl Database {
             )
             .map_err(|e| e.to_string())?;
 
-        let rows: Vec<(String, i64, String, String, Option<String>, Option<String>, i64)> = stmt
+        let result: Vec<DailyCategoryBreakdown> = stmt
             .query_map(params![start_date, end_date], |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4).ok(),
-                    row.get(5).ok(),
-                    row.get(6)?,
-                ))
+                Ok(DailyCategoryBreakdown {
+                    date: row.get(0)?,
+                    category_id: row.get(1)?,
+                    category_name: row.get(2)?,
+                    icon_source: row.get(3)?,
+                    builtin_icon_key: row.get(4).ok(),
+                    custom_icon_path: row.get(5).ok(),
+                    total_seconds: row.get(6)?,
+                })
             })
             .map_err(|e| e.to_string())?
             .filter_map(|r| r.ok())
-            .collect();
-
-        let mut date_totals: HashMap<String, i64> = HashMap::new();
-        for (date, _, _, _, _, _, secs) in &rows {
-            *date_totals.entry(date.clone()).or_default() += secs;
-        }
-
-        let result = rows
-            .into_iter()
-            .map(|(date, category_id, category_name, icon_source, builtin_icon_key, custom_icon_path, total_seconds)| {
-                let total = date_totals.get(&date).copied().unwrap_or(0);
-                let percentage = if total > 0 {
-                    (total_seconds as f64 / total as f64) * 100.0
-                } else {
-                    0.0
-                };
-                DailyCategoryBreakdown {
-                    date,
-                    category_id,
-                    category_name,
-                    icon_source,
-                    builtin_icon_key,
-                    custom_icon_path,
-                    total_seconds,
-                    percentage,
-                }
-            })
             .collect();
 
         Ok(result)

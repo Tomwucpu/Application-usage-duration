@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useMemo, memo, type ReactNode } from "react";
 
 export interface Column<T> {
   key: string;
@@ -48,7 +48,7 @@ function SortIcon({ dir }: { dir?: "asc" | "desc" }) {
   );
 }
 
-export function DataTable<T>({
+function DataTableInner<T>({
   columns,
   data,
   pageSize,
@@ -66,8 +66,12 @@ export function DataTable<T>({
   const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
 
+  const pageData = useMemo(() => {
+    const startIdx = (safePage - 1) * pageSize;
+    return data.slice(startIdx, startIdx + pageSize);
+  }, [data, safePage, pageSize]);
+
   const startIdx = (safePage - 1) * pageSize;
-  const pageData = data.slice(startIdx, startIdx + pageSize);
 
   useEffect(() => {
     onPageDataChange?.(pageData);
@@ -182,3 +186,5 @@ export function DataTable<T>({
     </div>
   );
 }
+
+export const DataTable = memo(DataTableInner) as typeof DataTableInner;

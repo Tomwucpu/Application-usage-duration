@@ -361,7 +361,7 @@ export function StackedBarChart({ groupBy, hourlyData, dailyData, hourlyCategory
       <div className="w-full h-[350px] mt-5">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            key={`${groupBy}-${viewMode}-${selectedDate}-${customStartDate}-${customEndDate}`}
+            key={`${groupBy}-${viewMode}`}
             data={chartData}
             margin={{ top: 5, right: 4, bottom: 4, left: 0 }}
           >

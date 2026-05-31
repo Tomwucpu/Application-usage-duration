@@ -169,10 +169,12 @@ export function Dashboard() {
 
     loadCategorySummary(selectedDate);
 
-    const range = getBreakdownRange(viewMode, selectedDate, customStartDate, customEndDate);
-    if (range) {
-      loadRangeBreakdown(range.start, range.end);
-      loadRangeCategoryBreakdown(range.start, range.end);
+    if (viewMode !== "daily") {
+      const range = getBreakdownRange(viewMode, selectedDate, customStartDate, customEndDate);
+      if (range) {
+        loadRangeBreakdown(range.start, range.end);
+        loadRangeCategoryBreakdown(range.start, range.end);
+      }
     }
   }, [
     viewMode,
@@ -476,12 +478,14 @@ export function Dashboard() {
       iconNames.add(option.value);
     }
 
-    if (iconNames.size > 0) {
-      void ensureAppIconsLoaded([...iconNames]);
+    const missingNames = [...iconNames].filter((n) => !appIcons[n]);
+    if (missingNames.length > 0) {
+      void ensureAppIconsLoaded(missingNames);
     }
   }, [
     allApps,
     appFilterOptions,
+    appIcons,
     effectiveSelectedAppNames,
     ensureAppIconsLoaded,
     groupBy,
@@ -503,11 +507,13 @@ export function Dashboard() {
       ids.add(id);
     }
 
-    if (ids.size > 0) {
-      void ensureCategoryFileIconsLoaded([...ids]);
+    const missingIds = [...ids].filter((id) => !categoryFileIcons[id]);
+    if (missingIds.length > 0) {
+      void ensureCategoryFileIconsLoaded(missingIds);
     }
   }, [
     categoryDisplaySummary,
+    categoryFileIcons,
     effectiveSelectedCategoryIds,
     ensureCategoryFileIconsLoaded,
     groupBy,

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useT } from "../../i18n";
 import type { Locale } from "../../i18n";
 import type { UsageRankingItem } from "../../types";
@@ -51,7 +52,7 @@ function RankingIcon({ icon, name }: { icon?: string | null; name: string }) {
   );
 }
 
-export function AppRanking({ items, totalSeconds, loading, title, colorMap }: Props) {
+export const AppRanking = memo(function AppRanking({ items, totalSeconds, loading, title, colorMap }: Props) {
   const { t, locale } = useT();
   const topItems = items.slice(0, 15);
 
@@ -109,4 +110,4 @@ export function AppRanking({ items, totalSeconds, loading, title, colorMap }: Pr
       </div>
     </div>
   );
-}
+})

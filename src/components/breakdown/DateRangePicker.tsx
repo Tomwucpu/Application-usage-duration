@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, memo } from "react";
 import { useT } from "../../i18n";
 import type { Locale } from "../../i18n";
 import { fmtLocalDate, parseDate, shiftCalendarMonth } from "../../utils/dates";
@@ -39,7 +39,7 @@ function formatMonthTitle(date: Date, locale: Locale): string {
   }).format(date);
 }
 
-export function DateRangePicker({ startDate, endDate, onChange, locale, compact = false }: DateRangePickerProps) {
+export const DateRangePicker = memo(function DateRangePicker({ startDate, endDate, onChange, locale, compact = false }: DateRangePickerProps) {
   const { t } = useT();
   const today = useMemo(() => new Date(), []);
   const todayStr = useMemo(() => fmtLocalDate(today), [today]);
@@ -152,7 +152,6 @@ export function DateRangePicker({ startDate, endDate, onChange, locale, compact 
     [draftStart, draftEnd],
   );
 
-  const todayRef = useMemo(() => new Date(), []);
   const start = parseDate(draftStart);
   const end = parseDate(draftEnd);
 
@@ -326,7 +325,7 @@ export function DateRangePicker({ startDate, endDate, onChange, locale, compact 
                 {calendarDays.map((date) => {
                   const dateValue = fmtLocalDate(date);
                   const currentMonth = date.getMonth() === month.getMonth();
-                  const isToday = isSameDay(date, todayRef);
+                  const isToday = isSameDay(date, today);
                   const isStart = isSameDay(date, start);
                   const isEnd = isSameDay(date, end);
                   const dayValue = fmtLocalDate(date);
@@ -383,7 +382,7 @@ export function DateRangePicker({ startDate, endDate, onChange, locale, compact 
       )}
     </div>
   );
-}
+})
 
 function DateField({
   label,

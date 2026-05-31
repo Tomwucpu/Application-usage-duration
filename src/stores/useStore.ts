@@ -289,17 +289,17 @@ export const useStore = create<Store>((set, get) => ({
       if (state.viewMode === "daily") {
         tasks.push(state.loadHourlyBreakdown(state.selectedDate, true));
         tasks.push(state.loadHourlyCategoryBreakdown(state.selectedDate, true));
-      }
-
-      const range = getBreakdownRange(
-        state.viewMode,
-        state.selectedDate,
-        state.customStartDate,
-        state.customEndDate,
-      );
-      if (range) {
-        tasks.push(state.loadRangeBreakdown(range.start, range.end, true));
-        tasks.push(state.loadRangeCategoryBreakdown(range.start, range.end, true));
+      } else {
+        const range = getBreakdownRange(
+          state.viewMode,
+          state.selectedDate,
+          state.customStartDate,
+          state.customEndDate,
+        );
+        if (range) {
+          tasks.push(state.loadRangeBreakdown(range.start, range.end, true));
+          tasks.push(state.loadRangeCategoryBreakdown(range.start, range.end, true));
+        }
       }
 
       await Promise.all(tasks);
