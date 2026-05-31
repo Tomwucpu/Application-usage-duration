@@ -4,10 +4,11 @@ import { DataTable, type Column } from "../shared/DataTable";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
 import { EditableCell } from "../shared/EditableCell";
 import { DropdownMenu } from "../shared/DropdownMenu";
-import { api } from "../../stores/useStore";
+import { api, useStore } from "../../stores/useStore";
 import type { AppMetadataItem, CategoryItem } from "../../types";
 import type { ToastTone } from "../shared/ToastStack";
 import { filterAppsBySearchAndCategories } from "./filterApps";
+import { DASHBOARD_APP_FILTER_STORAGE_KEY } from "../dashboard/filterDashboardItems";
 
 function formatDuration(totalSeconds: number): string {
   const s = Math.round(totalSeconds);
@@ -104,6 +105,9 @@ export function AppTable({
           pushToast("success", t("appManagement.saveSuccess"));
         }
         await onRefresh();
+        if (type === "resetIcon") {
+          useStore.getState().ensureAppIconsLoaded([appName], true);
+        }
       } catch {
         pushToast("error", type === "delete" ? t("appManagement.deleteFailed") : t("appManagement.saveFailed"));
       }
@@ -136,6 +140,7 @@ export function AppTable({
     try {
       await api.setAppCustomIcon(appName, customIconPath || null);
       await onRefresh();
+      useStore.getState().ensureAppIconsLoaded([appName], true);
       pushToast("success", t("appManagement.saveSuccess"));
     } catch {
       pushToast("error", t("appManagement.saveFailed"));
@@ -283,6 +288,19 @@ export function AppTable({
       sortable: false,
       render: (item) => (
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => {
+              localStorage.setItem(DASHBOARD_APP_FILTER_STORAGE_KEY, JSON.stringify([item.app_name]));
+              useStore.getState().setActiveView("dashboard");
+            }}
+            className="p-1.5 rounded-md text-[#1369ea] hover:bg-blue-50 dark:hover:bg-blue-500/10"
+            title={t("appManagement.viewAppData")}
+          >
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+            </svg>
+          </button>
           <button
             onClick={() =>
               setConfirm({ type: "delete", appName: item.app_name })

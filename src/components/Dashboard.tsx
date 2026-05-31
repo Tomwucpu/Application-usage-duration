@@ -159,6 +159,7 @@ export function Dashboard() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>(
     () => parseStoredNumberArray(localStorage.getItem(DASHBOARD_CATEGORY_FILTER_STORAGE_KEY)),
   );
+  const [filterSearch, setFilterSearch] = useState("");
 
   useEffect(() => {
     if (viewMode === "daily") {
@@ -260,6 +261,8 @@ export function Dashboard() {
 
   const appFilterOptions = useMemo(() => {
     const seen = new Set<string>();
+    const selectedSet = new Set(selectedAppNames);
+    const q = filterSearch.trim().toLowerCase();
 
     return allApps
       .filter((item) => {
@@ -274,8 +277,18 @@ export function Dashboard() {
         label: item.display_name || getDisplayName(item.app_name),
         icon: appIcons[item.app_name] || null,
       }))
-      .sort((a, b) => a.label.localeCompare(b.label, locale));
-  }, [allApps, appIcons, locale, displayNames]);
+      .sort((a, b) => {
+        const aSel = selectedSet.has(a.value);
+        const bSel = selectedSet.has(b.value);
+        if (aSel && !bSel) return -1;
+        if (!aSel && bSel) return 1;
+        return a.label.localeCompare(b.label, locale);
+      })
+      .filter((item) => {
+        if (!q) return true;
+        return item.label.toLowerCase().includes(q);
+      });
+  }, [allApps, appIcons, locale, displayNames, selectedAppNames, filterSearch]);
 
   const categoryFilterOptions = useMemo(() => {
     return categories.map((category) => ({
@@ -537,11 +550,51 @@ export function Dashboard() {
         >
           {() => (
             <div className="p-1">
+              {groupBy === "app" && (
+                <div className="px-1 pt-1 pb-1.5">
+                  <div className="relative">
+                    <svg
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <input
+                      type="text"
+                      value={filterSearch}
+                      onChange={(e) => setFilterSearch(e.target.value)}
+                      placeholder={t("dashboard.searchApps")}
+                      autoFocus
+                      className="w-full pl-8 pr-7 py-1.5 text-xs border border-slate-200 dark:border-[#3f3f41] rounded-md bg-white dark:bg-[#1d1d20] text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#1369ea]"
+                    />
+                    {filterSearch && (
+                      <button
+                        onClick={() => setFilterSearch("")}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                      >
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   if (groupBy === "app") {
                     setSelectedAppNames([]);
+                    setFilterSearch("");
                     return;
                   }
                   setSelectedCategoryIds([]);

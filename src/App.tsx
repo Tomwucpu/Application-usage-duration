@@ -24,8 +24,6 @@ const CategoryManagement = lazy(async () => {
   return { default: mod.CategoryManagement };
 });
 
-type View = "dashboard" | "settings" | "appManagement" | "categoryManagement";
-
 function NavButton({
   active,
   onClick,
@@ -57,9 +55,10 @@ function AppInner() {
   const theme = useStore((s) => s.theme);
   const tracker = useStore((s) => s.tracker);
   const displayNames = useStore((s) => s.displayNames);
+  const activeView = useStore((s) => s.activeView);
+  const setActiveView = useStore((s) => s.setActiveView);
   const refresh = useStore((s) => s.refresh);
   const { t, locale } = useT();
-  const [currentView, setCurrentView] = useState<View>("dashboard");
   const [spinning, setSpinning] = useState(false);
 
   useEffect(() => {
@@ -143,8 +142,8 @@ function AppInner() {
           </button>
           <div className="w-[2px] h-7 bg-slate-300 dark:bg-[#5f5f61] mx-1 rounded-full" />
           <NavButton
-            active={currentView === "dashboard"}
-            onClick={() => setCurrentView("dashboard")}
+            active={activeView === "dashboard"}
+            onClick={() => setActiveView("dashboard")}
             title={t("tab.dashboard")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -154,8 +153,8 @@ function AppInner() {
             </svg>
           </NavButton>
           <NavButton
-            active={currentView === "appManagement"}
-            onClick={() => setCurrentView("appManagement")}
+            active={activeView === "appManagement"}
+            onClick={() => setActiveView("appManagement")}
             title={t("appManagement.title")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -166,8 +165,8 @@ function AppInner() {
             </svg>
           </NavButton>
           <NavButton
-            active={currentView === "categoryManagement"}
-            onClick={() => setCurrentView("categoryManagement")}
+            active={activeView === "categoryManagement"}
+            onClick={() => setActiveView("categoryManagement")}
             title={t("categoryManagement.title")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -177,8 +176,8 @@ function AppInner() {
             </svg>
           </NavButton>
           <NavButton
-            active={currentView === "settings"}
-            onClick={() => setCurrentView("settings")}
+            active={activeView === "settings"}
+            onClick={() => setActiveView("settings")}
             title={t("settings.title")}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -190,8 +189,8 @@ function AppInner() {
       </header>
       <main className="flex-1 overflow-y-auto custom-scrollbar p-6">
         <Suspense fallback={<div className="text-center text-slate-500 py-12">{t("loading")}</div>}>
-          <div key={currentView} className="animate-fadeIn">
-            {viewContent[currentView]}
+          <div key={activeView} className="animate-fadeIn">
+            {viewContent[activeView]}
           </div>
         </Suspense>
       </main>

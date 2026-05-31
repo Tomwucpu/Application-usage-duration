@@ -15,6 +15,7 @@ import type {
   HourlyCategoryBreakdown,
   ImportBatchResult,
   ImportRecord,
+  PageView,
   TrackerState,
   UsageRecord,
   ViewMode,
@@ -217,10 +218,12 @@ interface Store {
   categoryFileIcons: Record<number, string>;
   categories: CategoryItem[];
   autoStartEnabled: boolean;
+  activeView: PageView;
   init: () => Promise<() => void>;
   setDate: (date: string) => Promise<void>;
   refresh: () => Promise<void>;
   setActiveTab: (tab: TabId) => void;
+  setActiveView: (view: PageView) => void;
   setTheme: (theme: Theme) => void;
   setViewMode: (mode: ViewMode) => void;
   setGroupBy: (groupBy: GroupBy) => void;
@@ -270,6 +273,7 @@ export const useStore = create<Store>((set, get) => ({
   categoryFileIcons: {},
   categories: [],
   autoStartEnabled: false,
+  activeView: "dashboard",
 
   init: async () => {
     const currentTheme = get().theme;
@@ -376,6 +380,10 @@ export const useStore = create<Store>((set, get) => ({
 
   setActiveTab: (tab: TabId) => {
     set({ activeTab: tab });
+  },
+
+  setActiveView: (view: PageView) => {
+    set({ activeView: view });
   },
 
   setTheme: (theme: Theme) => {
