@@ -82,7 +82,7 @@ export function Retention({ t, pushToast }: RetentionProps) {
             <span className="text-sm text-[#000000] dark:text-[#ffffff]">{t("settings.retention.keep")}</span>
             <input type="text" inputMode="numeric" pattern="[0-9]*" value={retentionDays} onChange={(e) => { const v = e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""); setRetentionDays(v ? Number(v) : 0); }} className="w-16 px-2 py-1.5 rounded border border-[#e2e8f0] dark:border-[#3f3f41] bg-white dark:bg-[#27272b] text-slate-900 dark:text-slate-100 text-sm" aria-label={t("settings.retention.custom")} />
             <span className="text-sm text-[#000000] dark:text-[#ffffff]">{t("settings.retention.days")}</span>
-            <button type="button" onClick={saveRetention} className="ml-auto px-3 py-1.5 rounded-md text-sm font-medium bg-[#1369eb] hover:bg-[#1369eb] hover:bg-opacity-90 active:bg-[#1369eb] disabled:opacity-60 text-white transition-colors cursor-pointer">{t("settings.retention.save")}</button>
+            <button type="button" onClick={saveRetention} className="ml-auto px-3 py-1.5 rounded-md text-sm font-medium bg-[#1369eb] hover:bg-[#1369eb] hover:bg-opacity-90 active:bg-[#1369eb] disabled:opacity-60 text-white transition-colors cursor-pointer">{t("common.save")}</button>
           </div>
         )}
       </div>

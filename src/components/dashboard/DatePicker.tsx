@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, memo } from "react";
-import type { Locale } from "../../i18n";
+import { useT, type Locale } from "../../i18n";
 import { addDays, fmtLocalDate, parseDate, shiftCalendarMonth } from "../../utils/dates";
 
 interface DatePickerProps {
@@ -11,11 +11,6 @@ interface DatePickerProps {
 const WEEKDAYS: Record<Locale, string[]> = {
   "zh-CN": ["日", "一", "二", "三", "四", "五", "六"],
   "en-US": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-};
-
-const TODAY_LABEL: Record<Locale, string> = {
-  "zh-CN": "今天",
-  "en-US": "Today",
 };
 
 
@@ -43,6 +38,7 @@ function formatSelectedDisplay(date: Date, locale: Locale): string {
 }
 
 export const DatePicker = memo(function DatePicker({ value, onChange, locale }: DatePickerProps) {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const selectedDate = useMemo(() => parseDate(value), [value]);
   const [visibleMonth, setVisibleMonth] = useState(
@@ -112,7 +108,7 @@ export const DatePicker = memo(function DatePicker({ value, onChange, locale }: 
           type="button"
           onClick={() => changeByDays(-1)}
           className="date-strip-arrow"
-          aria-label={locale === "zh-CN" ? "前一天" : "Previous day"}
+          aria-label={t("date.prevDay")}
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="m15 18-6-6 6-6" />
@@ -133,7 +129,7 @@ export const DatePicker = memo(function DatePicker({ value, onChange, locale }: 
           type="button"
           onClick={() => changeByDays(1)}
           className="date-strip-arrow"
-          aria-label={locale === "zh-CN" ? "后一天" : "Next day"}
+          aria-label={t("date.nextDay")}
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="m9 18 6-6-6-6" />
@@ -147,22 +143,22 @@ export const DatePicker = memo(function DatePicker({ value, onChange, locale }: 
         disabled={isTodaySelected}
         className="date-strip-today"
       >
-        {TODAY_LABEL[locale]}
+        {t("date.range.today")}
       </button>
 
 
       {open && (
         <div
           role="dialog"
-          aria-label={locale === "zh-CN" ? "选择日期" : "Select date"}
-          className="date-calendar-popover absolute left-0 top-[calc(100%+0.75rem)] z-50 w-[336px] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300 dark:border-[#3f3f41] dark:bg-[#28282c] dark:shadow-black"
+          aria-label={t("date.pick")}
+          className="date-calendar-popover absolute left-1/2 -translate-x-1/2 top-[calc(100%+0.75rem)] z-50 w-[336px] rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300 dark:border-[#3f3f41] dark:bg-[#28282c] dark:shadow-black"
         >
           <div className="flex items-center justify-between px-1">
             <button
               type="button"
               onClick={() => setVisibleMonth((month) => shiftCalendarMonth(month, -1))}
               className="calendar-month-button"
-              aria-label={locale === "zh-CN" ? "上个月" : "Previous month"}
+              aria-label={t("date.navigator.previousMonth")}
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m15 18-6-6 6-6" />
@@ -175,7 +171,7 @@ export const DatePicker = memo(function DatePicker({ value, onChange, locale }: 
               type="button"
               onClick={() => setVisibleMonth((month) => shiftCalendarMonth(month, 1))}
               className="calendar-month-button"
-              aria-label={locale === "zh-CN" ? "下个月" : "Next month"}
+              aria-label={t("date.navigator.nextMonth")}
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m9 18 6-6-6-6" />

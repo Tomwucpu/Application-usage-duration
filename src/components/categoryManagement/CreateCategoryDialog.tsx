@@ -116,7 +116,7 @@ export function CreateCategoryDialog({ open: isOpen, onClose, onCreated, pushToa
 
           {iconSource === "builtin" ? (
             <label className="space-y-1 text-sm block">
-              <span className="text-slate-500 dark:text-slate-400">{t("categoryManagement.icon")}</span>
+              <span className="text-slate-500 dark:text-slate-400">{t("common.icon")}</span>
               <DropdownMenu
                 label={currentIcon.key}
                 minWidthClassName="w-full"
@@ -153,7 +153,7 @@ export function CreateCategoryDialog({ open: isOpen, onClose, onCreated, pushToa
                       multiple: false,
                       filters: [
                         {
-                          name: t("categoryManagement.imageFiles"),
+                          name: t("common.imageFiles"),
                           extensions: ["png", "jpg", "jpeg", "gif", "bmp", "ico"],
                         },
                       ],
@@ -162,7 +162,7 @@ export function CreateCategoryDialog({ open: isOpen, onClose, onCreated, pushToa
                   }}
                   className="px-3 py-2 text-sm rounded border border-slate-200 dark:border-[#3f3f41] hover:bg-slate-100 dark:hover:bg-[#27272b] text-slate-600 dark:text-slate-300"
                 >
-                  {t("categoryManagement.browseIcon")}
+                  {t("common.browse")}
                 </button>
               </div>
             </label>
@@ -174,7 +174,7 @@ export function CreateCategoryDialog({ open: isOpen, onClose, onCreated, pushToa
             onClick={onClose}
             className="px-4 py-2 text-sm rounded-lg border border-slate-200 dark:border-[#3f3f41] text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#1d1d20] transition-colors"
           >
-            {t("categoryManagement.cancel")}
+            {t("common.cancel")}
           </button>
           <button
             ref={confirmRef}
@@ -182,7 +182,7 @@ export function CreateCategoryDialog({ open: isOpen, onClose, onCreated, pushToa
             disabled={saving}
             className="px-4 py-2 text-sm rounded-lg bg-[#1369ea] text-white hover:bg-[#0f58c5] disabled:opacity-50 transition-colors"
           >
-            {t("categoryManagement.save")}
+            {t("common.save")}
           </button>
         </div>
       </div>

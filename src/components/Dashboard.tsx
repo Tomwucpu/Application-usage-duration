@@ -360,13 +360,13 @@ export function Dashboard() {
       effectiveSelectedAppNames,
       appFilterOptions,
       t("dashboard.filterApps"),
-      t("dashboard.selectedCount"),
+      t("common.selectedCount"),
     )
     : getDashboardFilterLabel(
       effectiveSelectedCategoryIds,
       categoryFilterOptions,
       t("dashboard.filterCategories"),
-      t("dashboard.selectedCount"),
+      t("common.selectedCount"),
     );
 
   const filteredDailySummary = useMemo(() => {
@@ -607,7 +607,7 @@ export function Dashboard() {
                 }}
                 className="mb-1 flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#27272b]"
               >
-                <span>{t("dashboard.clearFilter")}</span>
+                <span>{t("common.clearFilter")}</span>
               </button>
 
               {groupBy === "app"

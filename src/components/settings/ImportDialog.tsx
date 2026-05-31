@@ -120,7 +120,7 @@ export function ImportDialog({ records, onClose, pushToast, t }: ImportDialogPro
                 onClick={onClose}
                 className="px-4 py-2 rounded-md text-sm font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-slate-100 transition-colors"
               >
-                {t("settings.import.cancel")}
+                {t("common.cancel")}
               </button>
               <button
                 onClick={() => void handleImport()}

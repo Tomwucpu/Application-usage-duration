@@ -75,7 +75,7 @@ export function IdleThreshold({ t, pushToast }: IdleThresholdProps) {
   };
 
   const displayLabel = customOpen
-    ? `${t("settings.idle.custom")} (${Math.round(value / 60)} ${t("settings.idle.minutes")})`
+    ? `${t("common.custom")} (${Math.round(value / 60)} ${t("settings.idle.minutes")})`
     : t(idlePresets.find((p) => p.seconds === value)?.key ?? "settings.idle.5min");
 
   return (
@@ -123,7 +123,7 @@ export function IdleThreshold({ t, pushToast }: IdleThresholdProps) {
                 customOpen ? "text-[#ffffff] bg-[#1369eb] dark:text-[#ffffff] dark:bg-[#1369ea] font-medium" : "text-slate-700 dark:text-slate-300"
               }`}
             >
-              {t("settings.idle.custom")}
+              {t("common.custom")}
             </button>
           </div>
         )}
@@ -138,7 +138,7 @@ export function IdleThreshold({ t, pushToast }: IdleThresholdProps) {
             value={customMinutes}
             onChange={(e) => setCustomMinutes(e.target.value.replace(/\D/g, "").replace(/^0+(?=\d)/, ""))}
             className="w-16 px-2 py-1.5 rounded border border-[#e2e8f0] dark:border-[#3f3f41] bg-white dark:bg-[#27272b] text-slate-900 dark:text-slate-100 text-sm"
-            aria-label={t("settings.idle.custom")}
+            aria-label={t("common.custom")}
           />
           <span className="text-sm text-slate-700 dark:text-slate-300">{t("settings.idle.minutes")}</span>
           <button
@@ -146,7 +146,7 @@ export function IdleThreshold({ t, pushToast }: IdleThresholdProps) {
             onClick={saveCustom}
             className="ml-auto px-3 py-1.5 rounded-md text-sm font-medium bg-[#1369eb] hover:bg-[#1369eb] hover:bg-opacity-90 active:bg-[#1369eb] disabled:opacity-60 text-white transition-colors cursor-pointer"
           >
-            {t("settings.idle.save")}
+            {t("common.save")}
           </button>
         </div>
       )}

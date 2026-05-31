@@ -232,8 +232,8 @@ export const DateRangePicker = memo(function DateRangePicker({ startDate, endDat
       {open && (
         <div
           role="dialog"
-          aria-label={locale === "zh-CN" ? "选择日期范围" : "Select date range"}
-          className={`absolute z-50 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/50 dark:border-[#3f3f41] dark:bg-[#28282c] dark:shadow-black/40 ${compact ? "right-0 top-[calc(100%+0.5rem)]" : "left-0 top-[calc(100%+0.5rem)]"}`}
+          aria-label={t("date.pickRange")}
+          className={`absolute z-50 left-1/2 -translate-x-1/2 top-[calc(100%+0.5rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/50 dark:border-[#3f3f41] dark:bg-[#28282c] dark:shadow-black/40`}
         >
           {/* Start / End date fields */}
           <div className="flex items-center gap-2.5 mb-5">
@@ -258,7 +258,7 @@ export const DateRangePicker = memo(function DateRangePicker({ startDate, endDat
                 setDraftStart(v);
                 setDraftStartInput(v);
               }}
-              locale={locale}
+              t={t as (key: string) => string}
             />
             <span className="text-slate-300 dark:text-slate-600 text-sm font-light shrink-0 pt-[2px]">—</span>
             <DateField
@@ -282,7 +282,7 @@ export const DateRangePicker = memo(function DateRangePicker({ startDate, endDat
                 setDraftEnd(v);
                 setDraftEndInput(v);
               }}
-              locale={locale}
+              t={t as (key: string) => string}
             />
           </div>
 
@@ -295,7 +295,7 @@ export const DateRangePicker = memo(function DateRangePicker({ startDate, endDat
                   type="button"
                   onClick={() => setMonth(shiftCalendarMonth(month, -1))}
                   className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-                  aria-label={locale === "zh-CN" ? "上个月" : "Previous month"}
+                  aria-label={t("date.navigator.previousMonth")}
                 >
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m15 18-6-6 6-6" />
@@ -308,7 +308,7 @@ export const DateRangePicker = memo(function DateRangePicker({ startDate, endDat
                   type="button"
                   onClick={() => setMonth(shiftCalendarMonth(month, 1))}
                   className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-                  aria-label={locale === "zh-CN" ? "下个月" : "Next month"}
+                  aria-label={t("date.navigator.nextMonth")}
                 >
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="m9 18 6-6-6-6" />
@@ -366,16 +366,14 @@ export const DateRangePicker = memo(function DateRangePicker({ startDate, endDat
           {/* Bottom bar */}
           <div className="mt-4 pt-3 border-t border-slate-100 dark:border-[#3f3f41] flex items-center justify-between">
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              {active === "start"
-                ? locale === "zh-CN" ? "正在设置开始日期" : "Setting start date"
-                : locale === "zh-CN" ? "正在设置结束日期" : "Setting end date"}
+              {active === "start" ? t("date.statusStart") : t("date.statusEnd")}
             </span>
             <button
               type="button"
               onClick={commitDraft}
               className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-[#0060df] text-white hover:bg-[#0051c4] transition-colors"
             >
-              {locale === "zh-CN" ? "确定" : "Apply"}
+              {t("date.confirm")}
             </button>
           </div>
         </div>
@@ -393,7 +391,7 @@ function DateField({
   onActivate,
   onMinus,
   onPlus,
-  locale,
+  t,
 }: {
   label: string;
   inputValue: string;
@@ -403,7 +401,7 @@ function DateField({
   onActivate: () => void;
   onMinus: () => void;
   onPlus: () => void;
-  locale: Locale;
+  t: (key: string) => string;
 }) {
   return (
     /* 日期选择范围中的日期输入框组件 */
@@ -423,7 +421,7 @@ function DateField({
           type="button"
           onClick={(e) => { e.stopPropagation(); onMinus(); }}
           className="shrink-0 p-1.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1d1d20] rounded-lg transition-colors"
-          aria-label={locale === "zh-CN" ? "前一天" : "Previous day"}
+          aria-label={t("date.prevDay")}
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="m15 18-6-6 6-6" />
@@ -444,7 +442,7 @@ function DateField({
           type="button"
           onClick={(e) => { e.stopPropagation(); onPlus(); }}
           className="shrink-0 p-1.5 mr-0.5 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1d1d20] rounded-lg transition-colors"
-          aria-label={locale === "zh-CN" ? "后一天" : "Next day"}
+          aria-label={t("date.nextDay")}
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="m9 18 6-6-6-6" />

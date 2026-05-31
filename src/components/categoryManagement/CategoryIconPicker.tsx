@@ -38,7 +38,7 @@ export function CategoryIconPicker({ item, onChanged, pushToast, t }: Props) {
   const handleSelectFile = async () => {
     const selected = await open({
       multiple: false,
-      filters: [{ name: t("categoryManagement.imageFiles"), extensions: ["png", "jpg", "jpeg", "gif", "bmp", "ico"] }],
+      filters: [{ name: t("common.imageFiles"), extensions: ["png", "jpg", "jpeg", "gif", "bmp", "ico"] }],
     });
     if (!selected) return;
     setSaving(true);

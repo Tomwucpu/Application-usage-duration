@@ -73,7 +73,7 @@ export function CategoryTable({ data, search, t, pushToast, onRefresh, onVisible
   const columns: Column<CategoryItem>[] = [
     {
       key: "icon",
-      header: t("categoryManagement.icon"),
+      header: t("common.icon"),
       width: "50px",
       render: (item) => (
         <CategoryIcon
@@ -125,7 +125,7 @@ export function CategoryTable({ data, search, t, pushToast, onRefresh, onVisible
     },
     {
       key: "actions",
-      header: t("categoryManagement.actions"),
+      header: t("common.actions"),
       width: "60px",
       render: (item) => (
         <div className="flex items-center">
@@ -133,7 +133,7 @@ export function CategoryTable({ data, search, t, pushToast, onRefresh, onVisible
             <button
               onClick={() => setConfirmDeleteId(item.id)}
               className="p-1.5 rounded-md text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
-              title={t("categoryManagement.delete")}
+              title={t("common.delete")}
             >
               <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -159,10 +159,10 @@ export function CategoryTable({ data, search, t, pushToast, onRefresh, onVisible
 
       <ConfirmDialog
         open={confirmDeleteId !== null}
-        title={t("categoryManagement.delete")}
+        title={t("common.delete")}
         message={t("categoryManagement.confirmDelete")}
-        confirmText={t("categoryManagement.confirm")}
-        cancelText={t("categoryManagement.cancel")}
+        confirmText={t("common.confirm")}
+        cancelText={t("common.cancel")}
         danger
         onConfirm={handleDelete}
         onCancel={() => setConfirmDeleteId(null)}

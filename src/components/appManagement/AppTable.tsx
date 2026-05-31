@@ -161,7 +161,7 @@ export function AppTable({
   const columns: Column<AppMetadataItem>[] = [
     {
       key: "icon",
-      header: t("appManagement.icon"),
+      header: t("common.icon"),
       width: "60px",
       sortable: false,
       render: (item) => {
@@ -203,7 +203,7 @@ export function AppTable({
         const currentCategory = categories.find((c) => c.id === item.category_id);
         return (
           <DropdownMenu
-            label={currentCategory?.name || t("appManagement.noCategory")}
+            label={currentCategory?.name || t("common.uncategorized")}
             minWidthClassName="w-full"
             scrollable
           >
@@ -249,7 +249,7 @@ export function AppTable({
                   multiple: false,
                   filters: [
                     {
-                      name: t("appManagement.imageFiles") || "Images",
+                      name: t("common.imageFiles") || "Images",
                       extensions: ["png", "jpg", "jpeg", "gif", "bmp", "ico"],
                     },
                   ],
@@ -258,7 +258,7 @@ export function AppTable({
                   await handleSaveCustomIcon(item.app_name, selected);
                 }
               }}
-              title={t("appManagement.browseIcon")}
+              title={t("common.browse")}
               className="shrink-0 text-slate-400 hover:text-[#1369ea] dark:text-slate-500 dark:hover:text-[#1369ea] transition-colors"
             >
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -283,7 +283,7 @@ export function AppTable({
     },
     {
       key: "actions",
-      header: t("appManagement.actions"),
+      header: t("common.actions"),
       width: "120px",
       sortable: false,
       render: (item) => (
@@ -337,8 +337,8 @@ export function AppTable({
         open={confirm?.type === "delete"}
         title={t("appManagement.delete")}
         message={t("appManagement.confirmDelete")}
-        confirmText={t("appManagement.confirm")}
-        cancelText={t("appManagement.cancel")}
+        confirmText={t("common.confirm")}
+        cancelText={t("common.cancel")}
         danger
         onConfirm={handleConfirm}
         onCancel={() => setConfirm(null)}
@@ -348,8 +348,8 @@ export function AppTable({
         open={confirm?.type === "resetName"}
         title={t("appManagement.resetName")}
         message={t("appManagement.confirmResetName")}
-        confirmText={t("appManagement.confirm")}
-        cancelText={t("appManagement.cancel")}
+        confirmText={t("common.confirm")}
+        cancelText={t("common.cancel")}
         onConfirm={handleConfirm}
         onCancel={() => setConfirm(null)}
       />
@@ -358,8 +358,8 @@ export function AppTable({
         open={confirm?.type === "resetIcon"}
         title={t("appManagement.resetIcon")}
         message={t("appManagement.confirmResetIcon")}
-        confirmText={t("appManagement.confirm")}
-        cancelText={t("appManagement.cancel")}
+        confirmText={t("common.confirm")}
+        cancelText={t("common.cancel")}
         onConfirm={handleConfirm}
         onCancel={() => setConfirm(null)}
       />

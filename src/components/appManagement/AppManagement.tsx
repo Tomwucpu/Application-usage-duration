@@ -57,7 +57,7 @@ export function AppManagement() {
     const selectedLabels = selectedCategoryIds
       .map((id) => {
         if (id === UNCATEGORIZED_FILTER_KEY) {
-          return t("appManagement.uncategorized");
+          return t("common.uncategorized");
         }
         return categories.find((category) => category.id === id)?.name ?? null;
       })
@@ -71,7 +71,7 @@ export function AppManagement() {
       return selectedLabels[0];
     }
 
-    return t("appManagement.selectedCount").replace("{count}", String(selectedLabels.length));
+    return t("common.selectedCount").replace("{count}", String(selectedLabels.length));
   }, [categories, selectedCategoryIds, t]);
 
   useEffect(() => {
@@ -164,7 +164,7 @@ export function AppManagement() {
                   onClick={() => setSelectedCategoryIds([])}
                   className="mb-1 flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#27272b]"
                 >
-                  <span>{t("appManagement.clearFilter")}</span>
+                  <span>{t("common.clearFilter")}</span>
                 </button>
 
                 <button
@@ -178,7 +178,7 @@ export function AppManagement() {
                   }
                   className="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-[#27272b]"
                 >
-                  <span>{t("appManagement.uncategorized")}</span>
+                  <span>{t("common.uncategorized")}</span>
                   <SelectedCheckIcon
                     selected={selectedCategoryIds.includes(UNCATEGORIZED_FILTER_KEY)}
                   />
