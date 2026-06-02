@@ -2,7 +2,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use crossbeam_channel::{bounded, RecvTimeoutError, Sender};
+use crossbeam_channel::{bounded, select, Sender};
 use chrono::Local;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -29,6 +29,7 @@ pub struct Tracker {
     db: Arc<Database>,
     icon_cache: Arc<IconCache>,
     thread_spawned: AtomicBool,
+    control_tx: Mutex<Option<Sender<()>>>,
 }
 
 impl Tracker {
@@ -46,15 +47,32 @@ impl Tracker {
             db,
             icon_cache,
             thread_spawned: AtomicBool::new(false),
+            control_tx: Mutex::new(None),
         }
     }
 
-    pub fn pause(&self) {
-        self.state.lock().unwrap().is_running = false;
-    }
-
-    pub fn resume(&self) {
-        self.state.lock().unwrap().is_running = true;
+    pub fn toggle(&self, db: &Database, app: &AppHandle) -> bool {
+        let now = Local::now();
+        let mut state = self.state.lock().unwrap();
+        if state.is_running {
+            finalize_current_session(db, &mut state, now);
+            state.is_running = false;
+            state.last_app = None;
+            state.last_app_path = None;
+            state.last_start = None;
+        } else {
+            state.is_running = true;
+            state.last_start = Some(now);
+            // Wake tracking thread to immediately process current foreground window
+            if let Some(tx) = self.control_tx.lock().unwrap().as_ref() {
+                let _ = tx.send(());
+            }
+        }
+        let state_clone = state.clone();
+        drop(state);
+        let _ = app.emit("tracker-state", &state_clone);
+        update_tray_tooltip(app, &state_clone);
+        state_clone.is_running
     }
 }
 
@@ -454,6 +472,10 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
     let (tx, rx) = bounded::<ForegroundEvent>(64);
     HOOK_SENDER.set(tx).ok();
 
+    // Control channel: wake thread on pause/resume toggle
+    let (control_tx, control_rx) = bounded::<()>(4);
+    *tracker.control_tx.lock().unwrap() = Some(control_tx);
+
     let hook = register_hook();
 
     // Capture current foreground window as initial event,
@@ -472,24 +494,48 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
         let mut last_afk_check = std::time::Instant::now();
 
         loop {
-            match rx.recv_timeout(std::time::Duration::from_secs(10)) {
-                Ok(event) => {
-                    // Foreground window changed — process it
-                    process_foreground_change(
-                        event.hwnd,
-                        &db,
-                        &state,
-                        &icon_cache,
-                        &name_cache,
-                        &mut persisted_metadata,
-                        idle_threshold_seconds,
-                        &mut was_running,
-                        &app,
-                        &mut last_afk_check,
-                    );
+            select! {
+                recv(rx) -> msg => {
+                    match msg {
+                        Ok(event) => {
+                            process_foreground_change(
+                                event.hwnd,
+                                &db,
+                                &state,
+                                &icon_cache,
+                                &name_cache,
+                                &mut persisted_metadata,
+                                idle_threshold_seconds,
+                                &mut was_running,
+                                &app,
+                                &mut last_afk_check,
+                            );
+                        }
+                        Err(_) => break,
+                    }
                 }
-                Err(RecvTimeoutError::Timeout) => {
-                    // No foreground change — check AFK transition
+                recv(control_rx) -> msg => {
+                    if msg.is_ok() {
+                        #[cfg(target_os = "windows")]
+                        {
+                            use windows::Win32::UI::WindowsAndMessaging::GetForegroundWindow;
+                            let hwnd = unsafe { GetForegroundWindow() };
+                            process_foreground_change(
+                                hwnd.0,
+                                &db,
+                                &state,
+                                &icon_cache,
+                                &name_cache,
+                                &mut persisted_metadata,
+                                idle_threshold_seconds,
+                                &mut was_running,
+                                &app,
+                                &mut last_afk_check,
+                            );
+                        }
+                    }
+                }
+                default(std::time::Duration::from_secs(10)) => {
                     check_afk_transition(
                         &db,
                         &state,
@@ -499,7 +545,6 @@ pub fn start_tracking(app: AppHandle, tracker: Arc<Tracker>) {
                     );
                     last_afk_check = std::time::Instant::now();
                 }
-                Err(RecvTimeoutError::Disconnected) => break,
             }
 
             update_today_and_emit(&db, &state, &app);
@@ -565,6 +610,8 @@ fn process_foreground_change(
     if !current_state.is_running {
         if just_paused {
             finalize_current_session(db, &mut current_state, now);
+            current_state.last_app = None;
+            current_state.last_app_path = None;
             current_state.last_start = None;
         }
         let state_clone = current_state.clone();
@@ -573,7 +620,7 @@ fn process_foreground_change(
         return;
     }
 
-    if just_resumed {
+    if just_resumed && current_state.last_start.is_none() {
         current_state.last_start = Some(now);
     }
 
@@ -631,7 +678,9 @@ fn process_foreground_change(
 
                 current_state.last_app = Some(display_name);
                 current_state.last_app_path = app_path.clone();
-                current_state.last_start = Some(now);
+                if !just_resumed {
+                    current_state.last_start = Some(now);
+                }
             }
         }
     }

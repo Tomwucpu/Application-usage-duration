@@ -4,6 +4,7 @@ use tauri::{
     AppHandle, Manager,
 };
 use std::sync::Arc;
+use crate::db::Database;
 use crate::tracker::Tracker;
 
 fn build_menu(app: &AppHandle, locale: &str) -> tauri::Result<Menu<tauri::Wry>> {
@@ -64,13 +65,9 @@ pub fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| {
             match event.id().as_ref() {
                 "pause" => {
-                    let tracker = app.state::<Arc<Tracker>>().clone();
-                    let is_running = { tracker.state.lock().unwrap().is_running };
-                    if is_running {
-                        tracker.pause();
-                    } else {
-                        tracker.resume();
-                    }
+                    let tracker = app.state::<Arc<Tracker>>();
+                    let db = app.state::<Arc<Database>>();
+                    tracker.toggle(&db, app);
                 }
                 "show" => {
                     toggle_window(app);

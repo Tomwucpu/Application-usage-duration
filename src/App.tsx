@@ -105,6 +105,28 @@ function AppInner() {
             <span className="text-sm text-slate-500 dark:text-slate-400">
               {isRunning ? t("status.tracking") : t("status.stopped")}
             </span>
+            <button
+              onClick={async () => {
+                try {
+                  await invoke<boolean>("toggle_tracking");
+                } catch (e) {
+                  console.error("toggle_tracking failed:", e);
+                }
+              }}
+              title={isRunning ? t("status.pause") : t("status.resume")}
+              className="rounded transition-colors text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-[#27272b] hover:text-slate-700 dark:hover:text-slate-300"
+            >
+              {isRunning ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="6" y="4" width="4" height="16" />
+                  <rect x="14" y="4" width="4" height="16" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+              )}
+            </button>
           </div>
           {isAfk && (
             <span className="text-xs bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded">

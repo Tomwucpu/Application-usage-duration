@@ -183,6 +183,15 @@ fn flush_tracking(
 }
 
 #[tauri::command]
+fn toggle_tracking(
+    app: tauri::AppHandle,
+    db: tauri::State<Arc<Database>>,
+    tracker: tauri::State<Arc<Tracker>>,
+) -> Result<bool, String> {
+    Ok(tracker.toggle(&db, &app))
+}
+
+#[tauri::command]
 fn update_window_theme(app: tauri::AppHandle, theme: String) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
         let tauri_theme = if theme == "light" {
@@ -413,6 +422,7 @@ pub fn run() {
             delete_category,
             set_app_category,
             start_tracking,
+            toggle_tracking,
             flush_tracking,
             get_setting,
             set_setting,

@@ -16,6 +16,8 @@
   "status.tracking": "Tracking",
   "status.stopped": "Stopped",
   "status.afk": "AFK",
+  "status.pause": "Pause Tracking",
+  "status.resume": "Resume Tracking",
   "status.today": "Today",
   "summary.total": "Total Usage",
   "summary.apps": "Active Apps",

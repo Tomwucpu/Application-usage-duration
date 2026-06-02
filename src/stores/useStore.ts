@@ -221,7 +221,12 @@ export const useStore = create<Store>((set, get) => ({
         return;
       }
       lastTrackerUpdate = now;
-      set({ tracker: event.payload });
+      const s = get();
+      set({
+        tracker: s.loading
+          ? { ...event.payload, today_total_seconds: s.tracker.today_total_seconds }
+          : event.payload,
+      });
     });
 
     await invoke("start_tracking");
@@ -266,6 +271,7 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   refresh: async () => {
+    if (get().loading) return;
     set({ loading: true });
     try {
       await invoke("flush_tracking");
