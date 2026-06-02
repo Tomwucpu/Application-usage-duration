@@ -37,6 +37,7 @@
   "chart.others": "其他",
   "tab.dashboard": "仪表盘",
   "tab.breakdown": "应用分布",
+  "tab.report": "统计报告",
   "breakdown.title": "应用使用分布",
   "breakdown.categoryTitle": "分类使用分布",
   "breakdown.daily": "日",
@@ -182,5 +183,19 @@
   "categoryManagement.saveFailed": "保存失败，请重试",
   "categoryManagement.nameRequired": "请输入分类名称",
   "categoryManagement.newCategory": "新分类",
-  "categoryManagement.chooseFile": "选择文件..."
+  "categoryManagement.chooseFile": "选择文件...",
+  "report.day": "日",
+  "report.week": "周",
+  "report.month": "月",
+  "report.year": "年",
+  "report.totalUsage": "总使用时长",
+  "report.activeApps": "活跃应用数",
+  "report.activeCategories": "活跃分类数",
+  "report.dailyAverage": "日均时长",
+  "report.hourlyAverage": "平均每小时",
+  "report.appRanking": "应用排行",
+  "report.categoryRanking": "分类排行",
+  "report.trend": "使用趋势",
+  "report.noData": "暂无数据",
+  "report.heatmap.title": "年度使用热力图"
 }

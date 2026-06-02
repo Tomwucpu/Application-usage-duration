@@ -102,7 +102,7 @@ export interface DailyCategoryBreakdown {
 export type ViewMode = "daily" | "weekly" | "monthly" | "custom";
 export type GroupBy = "app" | "category";
 export type CategoryIconSource = "builtin" | "file";
-export type PageView = "dashboard" | "settings" | "appManagement" | "categoryManagement";
+export type PageView = "dashboard" | "settings" | "appManagement" | "categoryManagement" | "report";
 
 export interface AppMetadataItem {
   app_name: string;

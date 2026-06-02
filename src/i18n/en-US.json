@@ -37,6 +37,7 @@
   "chart.others": "Others",
   "tab.dashboard": "Dashboard",
   "tab.breakdown": "Breakdown",
+  "tab.report": "Report",
   "breakdown.title": "App Usage Breakdown",
   "breakdown.categoryTitle": "Category Usage Breakdown",
   "breakdown.daily": "Daily",
@@ -182,5 +183,19 @@
   "categoryManagement.saveFailed": "Save failed. Please try again.",
   "categoryManagement.nameRequired": "Category name is required",
   "categoryManagement.newCategory": "New Category",
-  "categoryManagement.chooseFile": "Choose file..."
+  "categoryManagement.chooseFile": "Choose file...",
+  "report.day": "Day",
+  "report.week": "Week",
+  "report.month": "Month",
+  "report.year": "Year",
+  "report.totalUsage": "Total Usage",
+  "report.activeApps": "Active Apps",
+  "report.activeCategories": "Active Categories",
+  "report.dailyAverage": "Daily Average",
+  "report.hourlyAverage": "Avg/Hour",
+  "report.appRanking": "App Ranking",
+  "report.categoryRanking": "Category Ranking",
+  "report.trend": "Usage Trend",
+  "report.noData": "No data",
+  "report.heatmap.title": "Yearly Usage Heatmap"
 }

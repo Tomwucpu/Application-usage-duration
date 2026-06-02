@@ -24,6 +24,11 @@ const CategoryManagement = lazy(async () => {
   return { default: mod.CategoryManagement };
 });
 
+const Report = lazy(async () => {
+  const mod = await import("./components/Report");
+  return { default: mod.Report };
+});
+
 function NavButton({
   active,
   onClick,
@@ -86,6 +91,7 @@ function AppInner() {
 
   const viewContent = useMemo(() => ({
     dashboard: <Dashboard />,
+    report: <Report />,
     settings: <SettingsPage />,
     appManagement: <AppManagement />,
     categoryManagement: <CategoryManagement />,
@@ -173,6 +179,16 @@ function AppInner() {
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
               <line x1="8" y1="21" x2="16" y2="21" />
               <line x1="12" y1="17" x2="12" y2="21" />
+            </svg>
+          </NavButton>
+          <NavButton
+            active={activeView === "report"}
+            onClick={() => setActiveView("report")}
+            title={t("tab.report")}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+              <polyline points="17 6 23 6 23 12" />
             </svg>
           </NavButton>
           <NavButton
