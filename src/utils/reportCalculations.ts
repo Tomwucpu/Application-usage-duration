@@ -13,6 +13,7 @@ export interface ReportPeriodRange {
 export interface ChangeInfo {
   text: string;
   direction: "up" | "down" | "same" | "new";
+  diffText?: string;
 }
 
 export interface RankChange {
@@ -58,18 +59,18 @@ export interface ReportOverview {
   daysCount: number;
 }
 
-function getYearRange(dateStr: string): { start: string; end: string } {
+function getYearRange(dateStr: string, offset = 0): { start: string; end: string } {
   const d = parseDate(dateStr);
-  const start = fmtLocalDate(new Date(d.getFullYear(), 0, 1));
-  const end = fmtLocalDate(new Date(d.getFullYear(), 11, 31));
-  return { start, end };
+  const y = d.getFullYear() + offset;
+  return { start: fmtLocalDate(new Date(y, 0, 1)), end: fmtLocalDate(new Date(y, 11, 31)) };
 }
 
-function getPrevYearRange(dateStr: string): { start: string; end: string } {
-  const d = parseDate(dateStr);
-  const start = fmtLocalDate(new Date(d.getFullYear() - 1, 0, 1));
-  const end = fmtLocalDate(new Date(d.getFullYear() - 1, 11, 31));
-  return { start, end };
+function splitHMS(seconds: number) {
+  return {
+    h: Math.floor(seconds / 3600),
+    m: Math.floor((seconds % 3600) / 60),
+    s: seconds % 60,
+  };
 }
 
 export function getReportPeriodRange(anchorDate: string, period: ReportPeriod): ReportPeriodRange {
@@ -107,13 +108,11 @@ export function getReportPeriodRange(anchorDate: string, period: ReportPeriod): 
       };
     }
     case "year": {
-      const current = getYearRange(anchorDate);
-      const prev = getPrevYearRange(anchorDate);
       return {
-        start: current.start,
-        end: current.end,
-        prevStart: prev.start,
-        prevEnd: prev.end,
+        start: getYearRange(anchorDate).start,
+        end: getYearRange(anchorDate).end,
+        prevStart: getYearRange(anchorDate, -1).start,
+        prevEnd: getYearRange(anchorDate, -1).end,
       };
     }
   }
@@ -145,31 +144,33 @@ export function getPeriodLabel(anchorDate: string, period: ReportPeriod, locale:
   }
 }
 
-function formatChangeText(current: number, previous: number | null): ChangeInfo {
+function formatChangeText(current: number, previous: number | null, diffText?: string): ChangeInfo {
   if (previous === null || previous === 0) {
     return { text: "新增", direction: "new" as const };
   }
-  if (current === 0 && previous === 0) {
-    return { text: "—", direction: "same" as const };
-  }
   const pct = Math.round(((current - previous) / previous) * 100);
-  if (pct > 0) return { text: `↑${Math.abs(pct)}%`, direction: "up" as const };
-  if (pct < 0) return { text: `↓${Math.abs(pct)}%`, direction: "down" as const };
+  if (pct > 0) return { text: `${Math.abs(pct)}%`, direction: "up" as const, diffText };
+  if (pct < 0) return { text: `${Math.abs(pct)}%`, direction: "down" as const, diffText };
   return { text: "—", direction: "same" as const };
 }
 
+function formatDiffDuration(diffSeconds: number): string {
+  const sign = diffSeconds >= 0 ? "+" : "-";
+  const { h, m } = splitHMS(Math.abs(diffSeconds));
+  if (h > 0) return `${sign}${h}h ${m}m`;
+  if (m > 0) return `${sign}${m}m`;
+  return `${sign}0m`;
+}
+
 export function formatDurationReport(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
+  const { h, m } = splitHMS(seconds);
   if (h > 0) return `${h}h ${m}m`;
   if (m > 0) return `${m}m`;
   return "0m";
 }
 
 export function formatDurationFull(seconds: number, locale: string): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
+  const { h, m, s } = splitHMS(seconds);
   if (locale === "zh-CN") {
     if (h > 0) return `${h} 小时 ${m} 分钟`;
     if (m > 0) return `${m} 分钟 ${s} 秒`;
@@ -182,12 +183,12 @@ export function formatDurationFull(seconds: number, locale: string): string {
 
 function formatRankChangeText(currRank: number, prevRank: number | null): RankChange {
   if (prevRank === null) {
-    return { text: "新增", direction: "new" as const };
+    return { text: "—", direction: "same" as const };
   }
   const diff = prevRank - currRank;
-  if (diff > 0) return { text: `↑${diff}名`, direction: "up" as const };
-  if (diff < 0) return { text: `↓${Math.abs(diff)}名`, direction: "down" as const };
-  return { text: "—名", direction: "same" as const };
+  if (diff > 0) return { text: `${diff}`, direction: "up" as const };
+  if (diff < 0) return { text: `${Math.abs(diff)}`, direction: "down" as const };
+  return { text: "—", direction: "same" as const };
 }
 
 export function buildAppRanking(
@@ -214,6 +215,7 @@ export function buildAppRanking(
   return currSorted.map(([appName, seconds], i) => {
     const prevSeconds = prevMap.get(appName) ?? null;
     const prevRank = prevRankMap.get(appName) ?? null;
+    const diffText = prevSeconds !== null ? formatDiffDuration(seconds - prevSeconds) : undefined;
     return {
       key: appName,
       label: appName,
@@ -222,7 +224,7 @@ export function buildAppRanking(
       rank: i + 1,
       prevRank,
       rankChange: formatRankChangeText(i + 1, prevRank),
-      change: formatChangeText(seconds, prevSeconds),
+      change: formatChangeText(seconds, prevSeconds, diffText),
       prevTotalSeconds: prevSeconds,
     };
   });
@@ -257,6 +259,7 @@ export function buildCategoryRanking(
   return currSorted.map(([catId, info], i) => {
     const prevSeconds = prevMap.get(catId) ?? null;
     const prevRank = prevRankMap.get(catId) ?? null;
+    const diffText = prevSeconds !== null ? formatDiffDuration(info.seconds - prevSeconds) : undefined;
     return {
       key: catId,
       label: info.name,
@@ -265,7 +268,7 @@ export function buildCategoryRanking(
       rank: i + 1,
       prevRank,
       rankChange: formatRankChangeText(i + 1, prevRank),
-      change: formatChangeText(info.seconds, prevSeconds),
+      change: formatChangeText(info.seconds, prevSeconds, diffText),
       prevTotalSeconds: prevSeconds,
     };
   });
@@ -315,17 +318,20 @@ export function buildOverview(
   const hourlyAvg = Math.round(currSeconds / 24);
   const prevHourlyAvg = Math.round(prevSeconds / 24);
 
+  const fmtDurationDiff = (c: number, p: number) => formatDiffDuration(c - p);
+  const fmtCountDiff = (c: number, p: number) => `${c - p >= 0 ? "+" : ""}${c - p}`;
+
   return {
     totalSeconds: currSeconds,
     activeApps: currApps.size,
     activeCategories: currCats.size,
     dailyAverage: dailyAvg,
     hourlyAverage: hourlyAvg,
-    totalSecondsChange: formatChangeText(currSeconds, prevSeconds || null),
-    activeAppsChange: formatChangeText(currApps.size, prevApps.size || null),
-    activeCategoriesChange: formatChangeText(currCats.size, prevCats.size || null),
-    dailyAverageChange: formatChangeText(dailyAvg, prevDailyAvg || null),
-    hourlyAverageChange: formatChangeText(hourlyAvg, prevHourlyAvg || null),
+    totalSecondsChange: formatChangeText(currSeconds, prevSeconds || null, prevSeconds ? fmtDurationDiff(currSeconds, prevSeconds) : undefined),
+    activeAppsChange: formatChangeText(currApps.size, prevApps.size || null, prevApps.size ? fmtCountDiff(currApps.size, prevApps.size) : undefined),
+    activeCategoriesChange: formatChangeText(currCats.size, prevCats.size || null, prevCats.size ? fmtCountDiff(currCats.size, prevCats.size) : undefined),
+    dailyAverageChange: formatChangeText(dailyAvg, prevDailyAvg || null, prevDailyAvg ? fmtDurationDiff(dailyAvg, prevDailyAvg) : undefined),
+    hourlyAverageChange: formatChangeText(hourlyAvg, prevHourlyAvg || null, prevHourlyAvg ? fmtDurationDiff(hourlyAvg, prevHourlyAvg) : undefined),
     daysCount,
   };
 }

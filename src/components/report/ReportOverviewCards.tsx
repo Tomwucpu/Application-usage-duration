@@ -1,23 +1,11 @@
 import { useT } from "../../i18n";
-import type { ReportOverview, ReportPeriod, ChangeInfo } from "../../utils/reportCalculations";
+import type { ReportOverview, ReportPeriod } from "../../utils/reportCalculations";
 import { formatDurationFull, formatDurationReport } from "../../utils/reportCalculations";
+import { ChangeBadge, DiffBadge } from "../shared/ChangeBadge";
 
 interface Props {
   overview: ReportOverview;
   period: ReportPeriod;
-}
-
-function ChangeBadge({ change }: { change: ChangeInfo }) {
-  let color = "text-slate-400 dark:text-slate-500";
-  if (change.direction === "up") color = "text-green-500";
-  else if (change.direction === "down") color = "text-red-500";
-  else if (change.direction === "new") color = "text-blue-500";
-
-  return (
-    <span className={`text-xs font-medium ${color}`}>
-      {change.text}
-    </span>
-  );
 }
 
 export function ReportOverviewCards({ overview, period }: Props) {
@@ -44,6 +32,7 @@ export function ReportOverviewCards({ overview, period }: Props) {
           </div>
           <div className="mt-1 flex items-center gap-1">
             <ChangeBadge change={card.change} />
+            <DiffBadge change={card.change} />
           </div>
         </div>
       ))}

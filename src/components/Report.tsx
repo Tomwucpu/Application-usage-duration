@@ -19,11 +19,15 @@ import { ReportPeriodSwitcher } from "./report/ReportPeriodSwitcher";
 import { ReportOverviewCards } from "./report/ReportOverviewCards";
 import { ReportRanking } from "./report/ReportRanking";
 import { UsageHeatmap } from "./report/UsageHeatmap";
+import { BUILTIN_CATEGORY_ICONS } from "./CategoryIcons";
 
 export function Report() {
   const { locale } = useT();
   const appIcons = useStore((s) => s.appIcons);
   const ensureAppIconsLoaded = useStore((s) => s.ensureAppIconsLoaded);
+  const categories = useStore((s) => s.categories);
+  const categoryFileIcons = useStore((s) => s.categoryFileIcons);
+  const ensureCategoryFileIconsLoaded = useStore((s) => s.ensureCategoryFileIconsLoaded);
 
   const [period, setPeriod] = useState<ReportPeriod>("day");
   const [anchorDate, setAnchorDate] = useState<string>(getTodayString());
@@ -143,6 +147,31 @@ export function Report() {
     }
   }, [appRanking, appIcons, ensureAppIconsLoaded]);
 
+  useEffect(() => {
+    const fileIconIds = categories
+      .filter((c) => c.icon_source === "file")
+      .map((c) => c.id);
+    if (fileIconIds.length > 0) {
+      void ensureCategoryFileIconsLoaded(fileIconIds);
+    }
+  }, [categories, ensureCategoryFileIconsLoaded]);
+
+  const categoryIcons = useMemo(() => {
+    const catMap = new Map(categories.map((c) => [c.id, c]));
+    const result: Record<number, string> = {};
+    for (const item of categoryRanking) {
+      const cat = catMap.get(item.key);
+      if (!cat) continue;
+      if (cat.icon_source === "builtin" && cat.builtin_icon_key) {
+        const def = BUILTIN_CATEGORY_ICONS.find((i) => i.key === cat.builtin_icon_key);
+        if (def) result[item.key] = def.svg;
+      } else if (cat.icon_source === "file" && categoryFileIcons[item.key]) {
+        result[item.key] = categoryFileIcons[item.key];
+      }
+    }
+    return result;
+  }, [categories, categoryRanking, categoryFileIcons]);
+
   const handlePrev = useCallback(() => {
     if (period === "day") {
       setAnchorDate((d) => addDays(d, -1));
@@ -200,6 +229,7 @@ export function Report() {
         categoryItems={categoryRanking}
         loading={loading}
         appIcons={appIcons}
+        categoryIcons={categoryIcons}
         totalSeconds={overview.totalSeconds}
       />
 
